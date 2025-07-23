@@ -322,6 +322,92 @@
         .n8n-chat-widget .clear-history-btn:hover {
             opacity: 1;
         }
+
+        /* Audio recording styles */
+        .n8n-chat-widget .audio-recording {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .n8n-chat-widget .audio-btn {
+            background: none;
+            border: none;
+            color: var(--chat--color-primary);
+            cursor: pointer;
+            padding: 8px;
+            font-size: 16px;
+            transition: color 0.2s;
+        }
+
+        .n8n-chat-widget .audio-btn:hover {
+            color: var(--chat--color-secondary);
+        }
+
+        /* Typing indicator */
+        .n8n-chat-widget .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            margin: 8px 0;
+            border-radius: 12px;
+            background: var(--chat--color-background);
+            border: 1px solid rgba(133, 79, 255, 0.2);
+            color: var(--chat--color-font);
+            align-self: flex-start;
+            max-width: 80%;
+        }
+
+        .n8n-chat-widget .typing-dots {
+            display: flex;
+            gap: 4px;
+            margin-left: 8px;
+        }
+
+        .n8n-chat-widget .typing-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--chat--color-primary);
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .n8n-chat-widget .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .n8n-chat-widget .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Suggestions styles */
+        .n8n-chat-widget .suggestions-container {
+            padding: 12px 16px;
+            background: var(--chat--color-background);
+            border-top: 1px solid rgba(133, 79, 255, 0.1);
+        }
+
+        .n8n-chat-widget .suggestion-chip {
+            display: inline-block;
+            background: rgba(133, 79, 255, 0.1);
+            color: var(--chat--color-primary);
+            padding: 6px 12px;
+            margin: 4px;
+            border-radius: 16px;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .n8n-chat-widget .suggestion-chip:hover {
+            background: rgba(133, 79, 255, 0.2);
+        }
     `;
 
     // Load Geist font
@@ -378,6 +464,38 @@
     let prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     let darkMode = localStorage.getItem('chat_dark_mode') === 'true' || prefersDark;
 
+    // Audio recording variables
+    let mediaRecorder, audioChunks = [];
+    let isRecording = false;
+
+    // Typing indicator
+    let typingIndicator = null;
+
+    // Input validation and sanitization
+    function sanitizeInput(input) {
+        const div = document.createElement('div');
+        div.textContent = input;
+        return div.innerHTML;
+    }
+
+    function validateFile(file) {
+        const allowedTypes = ['text/plain', 'text/markdown', 'application/msword', 
+                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        const maxSize = 100 * 1024; // 100KB
+        
+        if (!allowedTypes.includes(file.type)) {
+            alert('Solo se permiten archivos .txt, .md, .doc, .docx');
+            return false;
+        }
+        
+        if (file.size > maxSize) {
+            alert('El archivo debe ser menor a 100KB');
+            return false;
+        }
+        
+        return true;
+    }
+
     // Create widget container
     const widgetContainer = document.createElement('div');
     widgetContainer.className = 'n8n-chat-widget' + (darkMode ? ' dark-mode' : '');
@@ -422,10 +540,17 @@
             </div>
             <div class="chat-messages"></div>
             <div class="chat-input">
-                <input type="file" id="file-input" style="display: none;" multiple accept=".pdf,.txt,.md,.doc,.docx,.xls,.xlsx" />
+                <input type="file" id="file-input" style="display: none;" multiple accept=".txt,.md,.doc,.docx" />
                 <button type="button" class="file-upload-btn" title="Adjuntar archivo">📎</button>
+                <button type="button" class="audio-btn" title="Grabar audio (10s max)">🎤</button>
                 <textarea placeholder="Type your message here..." rows="1"></textarea>
                 <button type="submit">Send</button>
+            </div>
+            <div class="suggestions-container" style="display: none;">
+                <button class="suggestion-chip">¿Cuáles son los horarios?</button>
+                <button class="suggestion-chip">¿Qué servicios ofrecen?</button>
+                <button class="suggestion-chip">¿Cómo me inscribo?</button>
+                <button class="suggestion-chip">¿Tienen clases online?</button>
             </div>
             <div class="chat-footer">
                 <a href="${config.branding.poweredBy.link}" target="_blank">${config.branding.poweredBy.text}</a>
@@ -453,9 +578,35 @@
     const sendButton = chatContainer.querySelector('button[type="submit"]');
     const fileInput = chatContainer.querySelector('#file-input');
     const fileUploadBtn = chatContainer.querySelector('.file-upload-btn');
+    const audioBtn = chatContainer.querySelector('.audio-btn');
+    const suggestionsContainer = chatContainer.querySelector('.suggestions-container');
 
     function generateUUID() {
         return crypto.randomUUID();
+    }
+
+    function showTypingIndicator() {
+        if (typingIndicator) return;
+        
+        typingIndicator = document.createElement('div');
+        typingIndicator.className = 'typing-indicator';
+        typingIndicator.innerHTML = `
+            El agente está escribiendo...
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
+        messagesContainer.appendChild(typingIndicator);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function hideTypingIndicator() {
+        if (typingIndicator) {
+            typingIndicator.remove();
+            typingIndicator = null;
+        }
     }
 
     async function startNewConversation() {
@@ -493,14 +644,17 @@
         }
     }
 
-    async function sendMessage(message) {
+    async function sendMessage(message, fileData = null) {
+        const sanitizedMessage = sanitizeInput(message);
+        
         const messageData = {
             action: "sendMessage",
             sessionId: currentSessionId,
             route: config.webhook.route,
-            chatInput: message,
+            chatInput: sanitizedMessage,
             metadata: {
-                userId: ""
+                userId: "",
+                fileData: fileData
             }
         };
 
@@ -509,6 +663,9 @@
         userMessageDiv.textContent = message;
         messagesContainer.appendChild(userMessageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // Show typing indicator
+        showTypingIndicator();
 
         try {
             const response = await fetch(config.webhook.url, {
@@ -521,13 +678,26 @@
             
             const data = await response.json();
             
+            // Hide typing indicator
+            hideTypingIndicator();
+            
             const botMessageDiv = document.createElement('div');
             botMessageDiv.className = 'chat-message bot';
             botMessageDiv.textContent = Array.isArray(data) ? data[0].output : data.output;
             messagesContainer.appendChild(botMessageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Show suggestions after bot response
+            suggestionsContainer.style.display = 'block';
         } catch (error) {
+            hideTypingIndicator();
             console.error('Error:', error);
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'chat-message bot';
+            errorDiv.textContent = 'Lo siento, ocurrió un error. Por favor intenta de nuevo.';
+            messagesContainer.appendChild(errorDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
     }
 
@@ -536,8 +706,14 @@
     sendButton.addEventListener('click', () => {
         const message = textarea.value.trim();
         if (message) {
+            // Input validation
+            if (message.length > 1000) {
+                alert('El mensaje es demasiado largo (máximo 1000 caracteres)');
+                return;
+            }
             sendMessage(message);
             textarea.value = '';
+            suggestionsContainer.style.display = 'none';
         }
     });
     
@@ -546,9 +722,28 @@
             e.preventDefault();
             const message = textarea.value.trim();
             if (message) {
+                // Input validation
+                if (message.length > 1000) {
+                    alert('El mensaje es demasiado largo (máximo 1000 caracteres)');
+                    return;
+                }
                 sendMessage(message);
                 textarea.value = '';
+                suggestionsContainer.style.display = 'none';
             }
+        }
+    });
+
+    // Show suggestions when textarea is focused and empty
+    textarea.addEventListener('focus', () => {
+        if (!textarea.value.trim()) {
+            suggestionsContainer.style.display = 'block';
+        }
+    });
+
+    textarea.addEventListener('input', () => {
+        if (textarea.value.trim()) {
+            suggestionsContainer.style.display = 'none';
         }
     });
     
@@ -595,15 +790,120 @@
             fileInput.click();
         });
 
-        fileInput.addEventListener('change', (e) => {
-            Array.from(e.target.files).forEach(file => {
-                const fileMessageDiv = document.createElement('div');
-                fileMessageDiv.className = 'chat-message user';
-                fileMessageDiv.innerHTML = `<strong>Archivo adjunto:</strong> ${file.name}`;
-                messagesContainer.appendChild(fileMessageDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            });
+        fileInput.addEventListener('change', async (e) => {
+            for (const file of Array.from(e.target.files)) {
+                if (!validateFile(file)) continue;
+                
+                try {
+                    const fileContent = await file.text();
+                    const fileData = {
+                        name: file.name,
+                        type: file.type,
+                        size: file.size,
+                        content: fileContent
+                    };
+                    
+                    const fileMessageDiv = document.createElement('div');
+                    fileMessageDiv.className = 'chat-message user';
+                    fileMessageDiv.innerHTML = `<strong>Archivo adjunto:</strong> ${sanitizeInput(file.name)} (${(file.size/1024).toFixed(1)}KB)`;
+                    messagesContainer.appendChild(fileMessageDiv);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    
+                    // Send file with message
+                    sendMessage(`Archivo adjunto: ${file.name}`, fileData);
+                } catch (error) {
+                    console.error('Error reading file:', error);
+                    alert('Error al leer el archivo');
+                }
+            }
             fileInput.value = ''; // Reset file input
+        });
+    }
+
+    // Audio recording functionality
+    if (audioBtn) {
+        audioBtn.addEventListener('click', async () => {
+            if (isRecording) {
+                // Stop recording
+                mediaRecorder.stop();
+                isRecording = false;
+                audioBtn.textContent = '🎤';
+                audioBtn.classList.remove('audio-recording');
+                audioBtn.title = 'Grabar audio (10s max)';
+            } else {
+                // Start recording
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const url = URL.createObjectURL(audioBlob);
+                        
+                        // Check audio size (approximate)
+                        if (audioBlob.size > 200 * 1024) { // ~200KB limit for 10s audio
+                            alert('El audio es demasiado largo. Máximo 10 segundos.');
+                            return;
+                        }
+                        
+                        const audioMessageDiv = document.createElement('div');
+                        audioMessageDiv.className = 'chat-message user';
+                        audioMessageDiv.innerHTML = `<strong>Audio enviado:</strong><br><audio controls src="${url}"></audio>`;
+                        messagesContainer.appendChild(audioMessageDiv);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        
+                        // Convert to base64 for sending
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            const audioData = {
+                                type: 'audio',
+                                data: reader.result,
+                                size: audioBlob.size
+                            };
+                            sendMessage('Audio enviado', audioData);
+                        };
+                        reader.readAsDataURL(audioBlob);
+                        
+                        // Stop all tracks
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+                    
+                    mediaRecorder.start();
+                    isRecording = true;
+                    audioBtn.textContent = '⏹️';
+                    audioBtn.classList.add('audio-recording');
+                    audioBtn.title = 'Detener grabación';
+                    
+                    // Auto-stop after 10 seconds
+                    setTimeout(() => {
+                        if (isRecording) {
+                            mediaRecorder.stop();
+                            isRecording = false;
+                            audioBtn.textContent = '🎤';
+                            audioBtn.classList.remove('audio-recording');
+                            audioBtn.title = 'Grabar audio (10s max)';
+                        }
+                    }, 10000);
+                    
+                } catch (error) {
+                    console.error('Error accessing microphone:', error);
+                    alert('No se pudo acceder al micrófono');
+                }
+            }
+        });
+    }
+
+    // Suggestions functionality
+    if (suggestionsContainer) {
+        suggestionsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('suggestion-chip')) {
+                const suggestion = e.target.textContent;
+                textarea.value = suggestion;
+                suggestionsContainer.style.display = 'none';
+                textarea.focus();
+            }
         });
     }
 
@@ -621,8 +921,14 @@
                 e.preventDefault();
                 const message = textarea.value.trim();
                 if (message) {
+                    // Input validation
+                    if (message.length > 1000) {
+                        alert('El mensaje es demasiado largo (máximo 1000 caracteres)');
+                        return;
+                    }
                     sendMessage(message);
                     textarea.value = '';
+                    suggestionsContainer.style.display = 'none';
                 }
             }
         });
