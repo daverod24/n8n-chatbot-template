@@ -1,354 +1,630 @@
-/* DavetechAI Chat Widget v1.0 */
+// Chat Widget Script
+(function() {
+    // Create and inject styles
+    const styles = `
+        .n8n-chat-widget {
+            --chat--color-primary: var(--n8n-chat-primary-color, #854fff);
+            --chat--color-secondary: var(--n8n-chat-secondary-color, #6b3fd4);
+            --chat--color-background: var(--n8n-chat-background-color, #ffffff);
+            --chat--color-font: var(--n8n-chat-font-color, #333333);
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
 
-// DavetechAI Chat Widget v2.0 - Responsive, Accessible, Darkmode, Dynamic, History
-(function () {
-    // Configurable agent info
-    let agentAvatar = localStorage.getItem('dtai_agent_avatar') || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=40&q=80';
-    let agentName = localStorage.getItem('dtai_agent_name') || 'DavetechAI Centro Musical';
+        .n8n-chat-widget .chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: none;
+            width: 380px;
+            height: 600px;
+            background: var(--chat--color-background);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(133, 79, 255, 0.15);
+            border: 1px solid rgba(133, 79, 255, 0.2);
+            overflow: hidden;
+            font-family: inherit;
+        }
 
-    // Chat history
-    let chatHistory = JSON.parse(localStorage.getItem('dtai_chat_history') || '[]');
+        .n8n-chat-widget .chat-container.position-left {
+            right: auto;
+            left: 20px;
+        }
 
-    // Detect dark mode
-    let prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    let darkMode = localStorage.getItem('dtai_dark_mode') === 'true' || prefersDark;
+        .n8n-chat-widget .chat-container.open {
+            display: flex;
+            flex-direction: column;
+        }
 
-    // Responsive CSS
-    const style = document.createElement('style');
-    style.innerHTML = `
-    .davetechai-chat-widget {
-        position: fixed; bottom: 2vw; right: 2vw; z-index: 99999;
-        width: 350px; max-width: 98vw; background: var(--dtai-bg,#fff); border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(102,126,234,0.18);
-        font-family: Arial, sans-serif; overflow: hidden;
-        transition: background 0.3s, color 0.3s;
-        border: 1px solid #e3e7fa;
-    }
-    @media (max-width: 600px) {
-        .davetechai-chat-widget { width: 98vw; right: 1vw; bottom: 1vw; border-radius: 10px; }
-    }
-    .dtai-header {
-        display: flex; align-items: center; padding: 12px 16px; background: linear-gradient(90deg,#667eea,#764ba2);
-        color: #fff; font-weight: bold; font-size: 1.1rem;
-    }
-    .dtai-header .dtai-avatar {
-        width:32px;height:32px;border-radius:50%;margin-right:10px;object-fit:cover;
-    }
-    .dtai-header .dtai-agent-edit {
-        background:none;border:none;color:#fff;font-size:1rem;cursor:pointer;margin-left:8px;
-    }
-    .dtai-header .dtai-close {
-        background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;margin-left:8px;
-    }
-    .dtai-chat-area {
-        height:320px;max-height:50vh;overflow-y:auto;padding:12px;background:var(--dtai-chat-bg,#fafaff);
-        color:var(--dtai-chat-color,#222);font-size:1rem;
-    }
-    .dtai-input-area {
-        display:flex;align-items:center;padding:10px 12px;background:var(--dtai-input-bg,#f5f5fa);border-top:1px solid #eee;gap:8px;
-    }
-    .dtai-input-area input[type="text"] {
-        flex:1;padding:8px;border-radius:8px;border:1px solid #ccc;font-size:1rem;
-        background:var(--dtai-input-bg,#fff);color:var(--dtai-input-color,#222);
-    }
-    .dtai-input-area input[type="text"]:focus {
-        outline:2px solid #667eea;
-    }
-    .dtai-input-area button, .dtai-input-area label {
-        background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--dtai-btn-color,#667eea);
-    }
-    .dtai-input-area button:focus {
-        outline:2px solid #ffd700;
-    }
-    .dtai-input-area .dtai-send {
-        background:#667eea;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:bold;cursor:pointer;font-size:1rem;
-        transition:background 0.2s;
-    }
-    .dtai-input-area .dtai-send:focus {
-        outline:2px solid #ffd700;
-    }
-    .dtai-powered {
-        text-align:center;padding:6px 0;font-size:0.9rem;color:#888;background:var(--dtai-input-bg,#f5f5fa);
-    }
-    .dtai-suggestion-box {
-        display:flex;flex-wrap:wrap;gap:6px;padding:6px 12px;background:var(--dtai-input-bg,#f5f5fa);border-top:1px solid #eee;
-    }
-    .dtai-suggestion-box button {
-        background:#e3e7fa;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:0.95rem;color:#222;
-        margin-bottom:4px;
-    }
-    .dtai-suggestion-box button:focus {
-        outline:2px solid #667eea;
-    }
-    .dtai-emoji-picker {
-        position:absolute;bottom:60px;right:60px;background:#fff;border:1px solid #ccc;border-radius:8px;padding:8px;z-index:100000;display:flex;flex-wrap:wrap;gap:6px;
-    }
-    .dtai-msg {
-        margin:8px 0;padding:8px;background:#e3e7fa;border-radius:8px;word-break:break-word;
-    }
-    .dtai-msg.agent {
-        background:#667eea;color:#fff;text-align:left;
-    }
-    .dtai-msg.user {
-        background:#e3e7fa;color:#222;text-align:right;
-    }
-    .dtai-dark {
-        --dtai-bg:#222;
-        --dtai-chat-bg:#222;
-        --dtai-chat-color:#fafaff;
-        --dtai-input-bg:#333;
-        --dtai-input-color:#fafaff;
-        --dtai-btn-color:#ffd700;
-    }
-    .dtai-toggle-dark {
-        background:none;border:none;color:#ffd700;font-size:1.2rem;cursor:pointer;margin-left:8px;
-    }
-    .dtai-history-bar {
-        display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:var(--dtai-input-bg,#f5f5fa);border-bottom:1px solid #eee;font-size:0.95rem;
-    }
-    .dtai-history-bar button {
-        background:#e3e7fa;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:0.95rem;color:#222;margin-left:6px;
-    }
-    .dtai-history-bar button:focus {
-        outline:2px solid #667eea;
-    }
+        .n8n-chat-widget .brand-header {
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid rgba(133, 79, 255, 0.1);
+            position: relative;
+        }
+
+        .n8n-chat-widget .close-button {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--chat--color-font);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+            font-size: 20px;
+            opacity: 0.6;
+        }
+
+        .n8n-chat-widget .close-button:hover {
+            opacity: 1;
+        }
+
+        .n8n-chat-widget .brand-header img {
+            width: 32px;
+            height: 32px;
+        }
+
+        .n8n-chat-widget .brand-header span {
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--chat--color-font);
+        }
+
+        .n8n-chat-widget .new-conversation {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .n8n-chat-widget .welcome-text {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--chat--color-font);
+            margin-bottom: 24px;
+            line-height: 1.3;
+        }
+
+        .n8n-chat-widget .new-chat-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.3s;
+            font-weight: 500;
+            font-family: inherit;
+            margin-bottom: 12px;
+        }
+
+        .n8n-chat-widget .new-chat-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .n8n-chat-widget .message-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        .n8n-chat-widget .response-text {
+            font-size: 14px;
+            color: var(--chat--color-font);
+            opacity: 0.7;
+            margin: 0;
+        }
+
+        .n8n-chat-widget .chat-interface {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .n8n-chat-widget .chat-interface.active {
+            display: flex;
+        }
+
+        .n8n-chat-widget .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: var(--chat--color-background);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .n8n-chat-widget .chat-message {
+            padding: 12px 16px;
+            margin: 8px 0;
+            border-radius: 12px;
+            max-width: 80%;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .n8n-chat-widget .chat-message.user {
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            align-self: flex-end;
+            box-shadow: 0 4px 12px rgba(133, 79, 255, 0.2);
+            border: none;
+        }
+
+        .n8n-chat-widget .chat-message.bot {
+            background: var(--chat--color-background);
+            border: 1px solid rgba(133, 79, 255, 0.2);
+            color: var(--chat--color-font);
+            align-self: flex-start;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .n8n-chat-widget .chat-input {
+            padding: 16px;
+            background: var(--chat--color-background);
+            border-top: 1px solid rgba(133, 79, 255, 0.1);
+            display: flex;
+            gap: 8px;
+        }
+
+        .n8n-chat-widget .chat-input textarea {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid rgba(133, 79, 255, 0.2);
+            border-radius: 8px;
+            background: var(--chat--color-background);
+            color: var(--chat--color-font);
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .n8n-chat-widget .chat-input textarea::placeholder {
+            color: var(--chat--color-font);
+            opacity: 0.6;
+        }
+
+        .n8n-chat-widget .chat-input button {
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 20px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-family: inherit;
+            font-weight: 500;
+        }
+
+        .n8n-chat-widget .chat-input button:hover {
+            transform: scale(1.05);
+        }
+
+        .n8n-chat-widget .chat-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 30px;
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(133, 79, 255, 0.3);
+            z-index: 999;
+            transition: transform 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .n8n-chat-widget .chat-toggle.position-left {
+            right: auto;
+            left: 20px;
+        }
+
+        .n8n-chat-widget .chat-toggle:hover {
+            transform: scale(1.05);
+        }
+
+        .n8n-chat-widget .chat-toggle svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        .n8n-chat-widget .chat-footer {
+            padding: 8px;
+            text-align: center;
+            background: var(--chat--color-background);
+            border-top: 1px solid rgba(133, 79, 255, 0.1);
+        }
+
+        .n8n-chat-widget .chat-footer a {
+            color: var(--chat--color-primary);
+            text-decoration: none;
+            font-size: 12px;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+            font-family: inherit;
+        }
+
+        .n8n-chat-widget .chat-footer a:hover {
+            opacity: 1;
+        }
+
+        /* Dark mode styles */
+        .n8n-chat-widget.dark-mode {
+            --chat--color-background: #2d2d2d;
+            --chat--color-font: #ffffff;
+        }
+
+        .n8n-chat-widget .dark-mode-toggle {
+            background: none;
+            border: none;
+            color: var(--chat--color-font);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 16px;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .n8n-chat-widget .dark-mode-toggle:hover {
+            opacity: 1;
+        }
+
+        /* File upload styles */
+        .n8n-chat-widget .file-upload-btn {
+            background: none;
+            border: none;
+            color: var(--chat--color-primary);
+            cursor: pointer;
+            padding: 8px;
+            font-size: 16px;
+            transition: color 0.2s;
+        }
+
+        .n8n-chat-widget .file-upload-btn:hover {
+            color: var(--chat--color-secondary);
+        }
+
+        .n8n-chat-widget .clear-history-btn {
+            background: none;
+            border: none;
+            color: var(--chat--color-font);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 14px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .n8n-chat-widget .clear-history-btn:hover {
+            opacity: 1;
+        }
     `;
-    document.head.appendChild(style);
+
+    // Load Geist font
+    const fontLink = document.createElement('link');
+    fontLink.rel = 'stylesheet';
+    fontLink.href = 'https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-sans/style.css';
+    document.head.appendChild(fontLink);
+
+    // Inject styles
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = styles;
+    document.head.appendChild(styleSheet);
+
+    // Default configuration
+    const defaultConfig = {
+        webhook: {
+            url: '',
+            route: ''
+        },
+        branding: {
+            logo: '',
+            name: '',
+            welcomeText: '',
+            responseTimeText: '',
+            poweredBy: {
+                text: 'Powered by DaverodtechAI',
+                link: 'https://landing.daverod.tech'
+            }
+        },
+        style: {
+            primaryColor: '',
+            secondaryColor: '',
+            position: 'right',
+            backgroundColor: '#ffffff',
+            fontColor: '#333333'
+        }
+    };
+
+    // Merge user config with defaults
+    const config = window.ChatWidgetConfig ? 
+        {
+            webhook: { ...defaultConfig.webhook, ...window.ChatWidgetConfig.webhook },
+            branding: { ...defaultConfig.branding, ...window.ChatWidgetConfig.branding },
+            style: { ...defaultConfig.style, ...window.ChatWidgetConfig.style }
+        } : defaultConfig;
+
+    // Prevent multiple initializations
+    if (window.N8NChatWidgetInitialized) return;
+    window.N8NChatWidgetInitialized = true;
+
+    let currentSessionId = '';
+    
+    // Dark mode functionality
+    let prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    let darkMode = localStorage.getItem('chat_dark_mode') === 'true' || prefersDark;
 
     // Create widget container
     const widgetContainer = document.createElement('div');
-    widgetContainer.className = 'davetechai-chat-widget' + (darkMode ? ' dtai-dark' : '');
-    widgetContainer.setAttribute('role','dialog');
-    widgetContainer.setAttribute('aria-label','Chat DavetechAI');
-    widgetContainer.setAttribute('tabindex','-1');
+    widgetContainer.className = 'n8n-chat-widget' + (darkMode ? ' dark-mode' : '');
+    
+    // Set CSS variables for colors
+    widgetContainer.style.setProperty('--n8n-chat-primary-color', config.style.primaryColor);
+    widgetContainer.style.setProperty('--n8n-chat-secondary-color', config.style.secondaryColor);
+    widgetContainer.style.setProperty('--n8n-chat-background-color', config.style.backgroundColor);
+    widgetContainer.style.setProperty('--n8n-chat-font-color', config.style.fontColor);
 
-    // Header
-    const header = document.createElement('div');
-    header.className = 'dtai-header';
-    header.innerHTML = `
-        <img src="${agentAvatar}" class="dtai-avatar" alt="Avatar agente" tabindex="0" />
-        <span class="dtai-agent-name" tabindex="0">${agentName}</span>
-        <button class="dtai-agent-edit" title="Editar agente" aria-label="Editar agente">✏️</button>
-        <button class="dtai-toggle-dark" title="Modo oscuro" aria-label="Modo oscuro">${darkMode ? '🌙' : '☀️'}</button>
-        <button class="dtai-close" title="Cerrar chat" aria-label="Cerrar chat">&times;</button>
-    `;
-    widgetContainer.appendChild(header);
-
-    // History bar
-    const historyBar = document.createElement('div');
-    historyBar.className = 'dtai-history-bar';
-    historyBar.innerHTML = `<span>Historial de chat</span><span><button class="dtai-download" title="Descargar historial" aria-label="Descargar historial">⬇️</button><button class="dtai-clear" title="Limpiar historial" aria-label="Limpiar historial">🗑️</button></span>`;
-    widgetContainer.appendChild(historyBar);
-
-    // Chat area
-    const chatArea = document.createElement('div');
-    chatArea.className = 'dtai-chat-area';
-    chatArea.setAttribute('aria-live','polite');
-    widgetContainer.appendChild(chatArea);
-
-    // Sugerencias automáticas
-    const suggestions = ['¿Cuáles son los horarios de clases?', '¿Qué instrumentos puedo aprender?', '¿Cómo me inscribo?', '¿Hay clases online?', '¿Cuánto cuesta la matrícula?'];
-    const suggestionBox = document.createElement('div');
-    suggestionBox.className = 'dtai-suggestion-box';
-    suggestions.forEach(s => {
-        const btn = document.createElement('button');
-        btn.type = 'button'; btn.textContent = s;
-        btn.onclick = () => {
-            inputArea.querySelector('#dtai-input').value = s;
-            inputArea.querySelector('#dtai-input').focus();
-        };
-        suggestionBox.appendChild(btn);
-    });
-
-    // Input area
-    const inputArea = document.createElement('form');
-    inputArea.className = 'dtai-input-area';
-    inputArea.innerHTML = `
-        <input type="text" id="dtai-input" placeholder="Escribe tu mensaje..." autocomplete="off" aria-label="Escribe tu mensaje" />
-        <button type="button" id="dtai-emoji" title="Emojis" aria-label="Emojis">😊</button>
-        <input type="file" id="dtai-file" style="display:none;" multiple accept=".pdf,.txt,.md,.doc,.docx,.xls,.xlsx" />
-        <button type="button" id="dtai-attach" title="Adjuntar archivo" aria-label="Adjuntar archivo">📎</button>
-        <button type="button" id="dtai-audio" title="Enviar audio" aria-label="Enviar audio">🎤</button>
-        <button type="submit" class="dtai-send">Enviar</button>
+    const chatContainer = document.createElement('div');
+    chatContainer.className = `chat-container${config.style.position === 'left' ? ' position-left' : ''}`;
+    
+    const newConversationHTML = `
+        <div class="brand-header">
+            <img src="${config.branding.logo}" alt="${config.branding.name}">
+            <span>${config.branding.name}</span>
+            <button class="dark-mode-toggle" title="Modo oscuro">${darkMode ? '🌙' : '☀️'}</button>
+            <button class="clear-history-btn" title="Limpiar historial">🗑️</button>
+            <button class="close-button">×</button>
+        </div>
+        <div class="new-conversation">
+            <h2 class="welcome-text">${config.branding.welcomeText}</h2>
+            <button class="new-chat-btn">
+                <svg class="message-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z"/>
+                </svg>
+                Send us a message
+            </button>
+            <p class="response-text">${config.branding.responseTimeText}</p>
+        </div>
     `;
 
-    // Powered by
-    const powered = document.createElement('div');
-    powered.className = 'dtai-powered';
-    powered.innerHTML = '<a href="https://landing.daverod.tech" style="color:#667eea;text-decoration:none;" target="_blank">Powered by DaverodtechAI</a>';
-
-    // Add widget to page
+    const chatInterfaceHTML = `
+        <div class="chat-interface">
+            <div class="brand-header">
+                <img src="${config.branding.logo}" alt="${config.branding.name}">
+                <span>${config.branding.name}</span>
+                <button class="dark-mode-toggle" title="Modo oscuro">${darkMode ? '🌙' : '☀️'}</button>
+                <button class="clear-history-btn" title="Limpiar historial">🗑️</button>
+                <button class="close-button">×</button>
+            </div>
+            <div class="chat-messages"></div>
+            <div class="chat-input">
+                <input type="file" id="file-input" style="display: none;" multiple accept=".pdf,.txt,.md,.doc,.docx,.xls,.xlsx" />
+                <button type="button" class="file-upload-btn" title="Adjuntar archivo">📎</button>
+                <textarea placeholder="Type your message here..." rows="1"></textarea>
+                <button type="submit">Send</button>
+            </div>
+            <div class="chat-footer">
+                <a href="${config.branding.poweredBy.link}" target="_blank">${config.branding.poweredBy.text}</a>
+            </div>
+        </div>
+    `;
+    
+    chatContainer.innerHTML = newConversationHTML + chatInterfaceHTML;
+    
+    const toggleButton = document.createElement('button');
+    toggleButton.className = `chat-toggle${config.style.position === 'left' ? ' position-left' : ''}`;
+    toggleButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M12 2C6.477 2 2 6.477 2 12c0 1.821.487 3.53 1.338 5L2.5 21.5l4.5-.838A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18c-1.476 0-2.886-.313-4.156-.878l-3.156.586.586-3.156A7.962 7.962 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/>
+        </svg>`;
+    
+    widgetContainer.appendChild(chatContainer);
+    widgetContainer.appendChild(toggleButton);
     document.body.appendChild(widgetContainer);
 
-    widgetContainer.appendChild(suggestionBox);
-    widgetContainer.appendChild(inputArea);
-    widgetContainer.appendChild(powered);
+    const newChatBtn = chatContainer.querySelector('.new-chat-btn');
+    const chatInterface = chatContainer.querySelector('.chat-interface');
+    const messagesContainer = chatContainer.querySelector('.chat-messages');
+    const textarea = chatContainer.querySelector('textarea');
+    const sendButton = chatContainer.querySelector('button[type="submit"]');
+    const fileInput = chatContainer.querySelector('#file-input');
+    const fileUploadBtn = chatContainer.querySelector('.file-upload-btn');
 
-    // Accessibility: focus trap
-    widgetContainer.focus();
+    function generateUUID() {
+        return crypto.randomUUID();
+    }
 
-    // Close button
-    header.querySelector('.dtai-close').onclick = () => widgetContainer.remove();
+    async function startNewConversation() {
+        currentSessionId = generateUUID();
+        const data = [{
+            action: "loadPreviousSession",
+            sessionId: currentSessionId,
+            route: config.webhook.route,
+            metadata: {
+                userId: ""
+            }
+        }];
 
-    // Dark mode toggle
-    header.querySelector('.dtai-toggle-dark').onclick = () => {
-        darkMode = !darkMode;
-        localStorage.setItem('dtai_dark_mode', darkMode);
-        widgetContainer.classList.toggle('dtai-dark', darkMode);
-        header.querySelector('.dtai-toggle-dark').textContent = darkMode ? '🌙' : '☀️';
-    };
+        try {
+            const response = await fetch(config.webhook.url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
 
-    // Edit agent info
-    header.querySelector('.dtai-agent-edit').onclick = () => {
-        const name = prompt('Nombre del agente:', agentName);
-        if (name) {
-            agentName = name;
-            localStorage.setItem('dtai_agent_name', name);
-            header.querySelector('.dtai-agent-name').textContent = name;
+            const responseData = await response.json();
+            chatContainer.querySelector('.brand-header').style.display = 'none';
+            chatContainer.querySelector('.new-conversation').style.display = 'none';
+            chatInterface.classList.add('active');
+
+            const botMessageDiv = document.createElement('div');
+            botMessageDiv.className = 'chat-message bot';
+            botMessageDiv.textContent = Array.isArray(responseData) ? responseData[0].output : responseData.output;
+            messagesContainer.appendChild(botMessageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        } catch (error) {
+            console.error('Error:', error);
         }
-        const avatar = prompt('URL del avatar:', agentAvatar);
-        if (avatar) {
-            agentAvatar = avatar;
-            localStorage.setItem('dtai_agent_avatar', avatar);
-            header.querySelector('.dtai-avatar').src = avatar;
-        }
-    };
+    }
 
-    // Emoji picker (simple)
-    const emojiList = ['😀','😁','😂','🤣','😊','😍','😎','😢','😡','👍','🙏','🎵','🎶','🥁','🎸','🎹','🎤'];
-    let emojiPicker;
-    inputArea.querySelector('#dtai-emoji').onclick = function() {
-        if (emojiPicker) { emojiPicker.remove(); emojiPicker = null; return; }
-        emojiPicker = document.createElement('div');
-        emojiPicker.className = 'dtai-emoji-picker';
-        emojiList.forEach(e => {
-            const btn = document.createElement('button');
-            btn.type = 'button'; btn.textContent = e;
-            btn.onclick = () => {
-                inputArea.querySelector('#dtai-input').value += e;
-                emojiPicker.remove(); emojiPicker = null;
-            };
-            emojiPicker.appendChild(btn);
-        });
-        document.body.appendChild(emojiPicker);
-    };
-
-    // Attach file
-    inputArea.querySelector('#dtai-attach').onclick = function() {
-        inputArea.querySelector('#dtai-file').click();
-    };
-    inputArea.querySelector('#dtai-file').onchange = function(e) {
-        Array.from(e.target.files).forEach(file => {
-            addMessage('user', `<b>Archivo adjunto:</b> ${file.name}`);
-        });
-        chatArea.scrollTop = chatArea.scrollHeight;
-    };
-
-    // Audio recording
-    let mediaRecorder, audioChunks = [];
-    inputArea.querySelector('#dtai-audio').onclick = async function() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert('Audio no soportado en este navegador');
-            return;
-        }
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.start();
-        audioChunks = [];
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            const url = URL.createObjectURL(audioBlob);
-            addMessage('user', `<b>Audio enviado:</b><br><audio controls src="${url}"></audio>`);
-            chatArea.scrollTop = chatArea.scrollHeight;
+    async function sendMessage(message) {
+        const messageData = {
+            action: "sendMessage",
+            sessionId: currentSessionId,
+            route: config.webhook.route,
+            chatInput: message,
+            metadata: {
+                userId: ""
+            }
         };
-        setTimeout(() => mediaRecorder.stop(), 5000); // 5s grabación
-    };
 
-    // Validación de entrada y envío
-    inputArea.onsubmit = function(e) {
-        e.preventDefault();
-        const input = inputArea.querySelector('#dtai-input');
-        const text = input.value.trim();
-        if (!text) {
-            input.style.borderColor = '#e53e3e';
-            input.setAttribute('aria-invalid','true');
-            input.placeholder = 'Escribe un mensaje válido';
-            setTimeout(() => { input.style.borderColor = '#ccc'; input.setAttribute('aria-invalid','false'); input.placeholder = 'Escribe tu mensaje...'; }, 1500);
-            return;
-        }
-        addMessage('user', text);
-        input.value = '';
-    };
+        const userMessageDiv = document.createElement('div');
+        userMessageDiv.className = 'chat-message user';
+        userMessageDiv.textContent = message;
+        messagesContainer.appendChild(userMessageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-    // Mensaje de bienvenida dinámico
-    function getWelcomeMessage() {
-        const hour = new Date().getHours();
-        let saludo = '¡Hola!';
-        if (hour < 12) saludo = '¡Buenos días!';
-        else if (hour < 18) saludo = '¡Buenas tardes!';
-        else saludo = '¡Buenas noches!';
-        const user = (window.localStorage.getItem('dtai_user_name') || '');
-        return `${saludo} ${user ? user + ',' : ''} ¿En qué podemos ayudarte hoy?`;
-    }
-
-    // Render chat history
-    function renderHistory() {
-        chatArea.innerHTML = '';
-        chatHistory.forEach(msg => {
-            addMessage(msg.role, msg.text, false);
-        });
-    }
-
-    // Add message to chat and history
-    function addMessage(role, text, save = true) {
-        const msg = document.createElement('div');
-        msg.className = 'dtai-msg ' + role;
-        msg.innerHTML = (role === 'agent' ? `<b>${agentName}:</b> ` : '<b>Tú:</b> ') + text;
-        chatArea.appendChild(msg);
-        chatArea.scrollTop = chatArea.scrollHeight;
-        if (save) {
-            chatHistory.push({ role, text });
-            localStorage.setItem('dtai_chat_history', JSON.stringify(chatHistory));
+        try {
+            const response = await fetch(config.webhook.url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(messageData)
+            });
+            
+            const data = await response.json();
+            
+            const botMessageDiv = document.createElement('div');
+            botMessageDiv.className = 'chat-message bot';
+            botMessageDiv.textContent = Array.isArray(data) ? data[0].output : data.output;
+            messagesContainer.appendChild(botMessageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        } catch (error) {
+            console.error('Error:', error);
         }
     }
 
-    // Download chat history
-    historyBar.querySelector('.dtai-download').onclick = () => {
-        const content = chatHistory.map(m => (m.role === 'agent' ? agentName : 'Tú') + ': ' + m.text.replace(/<[^>]+>/g,'')).join('\n');
-        const blob = new Blob([content], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'chat-history.txt';
-        a.click();
-    };
-
-    // Clear chat history
-    historyBar.querySelector('.dtai-clear').onclick = () => {
-        if (confirm('¿Seguro que quieres borrar el historial?')) {
-            chatHistory = [];
-            localStorage.removeItem('dtai_chat_history');
-            renderHistory();
+    newChatBtn.addEventListener('click', startNewConversation);
+    
+    sendButton.addEventListener('click', () => {
+        const message = textarea.value.trim();
+        if (message) {
+            sendMessage(message);
+            textarea.value = '';
         }
-    };
-
-    // Initial render
-    renderHistory();
-    if (chatHistory.length === 0) {
-        addMessage('agent', getWelcomeMessage());
-    }
-
-    // Keyboard accessibility: Enter to send, Esc to close
-    inputArea.querySelector('#dtai-input').addEventListener('keydown', function(e) {
+    });
+    
+    textarea.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            inputArea.querySelector('.dtai-send').click();
+            const message = textarea.value.trim();
+            if (message) {
+                sendMessage(message);
+                textarea.value = '';
+            }
         }
+    });
+    
+    toggleButton.addEventListener('click', () => {
+        chatContainer.classList.toggle('open');
+    });
+
+    // Add close button handlers
+    const closeButtons = chatContainer.querySelectorAll('.close-button');
+    closeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            chatContainer.classList.remove('open');
+        });
+    });
+
+    // Dark mode toggle functionality
+    const darkModeToggles = chatContainer.querySelectorAll('.dark-mode-toggle');
+    darkModeToggles.forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            darkMode = !darkMode;
+            localStorage.setItem('chat_dark_mode', darkMode);
+            widgetContainer.classList.toggle('dark-mode', darkMode);
+            // Update all toggle buttons
+            chatContainer.querySelectorAll('.dark-mode-toggle').forEach(btn => {
+                btn.textContent = darkMode ? '🌙' : '☀️';
+            });
+        });
+    });
+
+    // Clear history functionality
+    const clearHistoryBtns = chatContainer.querySelectorAll('.clear-history-btn');
+    clearHistoryBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (confirm('¿Seguro que quieres borrar el historial del chat?')) {
+                messagesContainer.innerHTML = '';
+                localStorage.removeItem('chat_history');
+            }
+        });
+    });
+
+    // File upload functionality
+    if (fileUploadBtn && fileInput) {
+        fileUploadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            Array.from(e.target.files).forEach(file => {
+                const fileMessageDiv = document.createElement('div');
+                fileMessageDiv.className = 'chat-message user';
+                fileMessageDiv.innerHTML = `<strong>Archivo adjunto:</strong> ${file.name}`;
+                messagesContainer.appendChild(fileMessageDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            });
+            fileInput.value = ''; // Reset file input
+        });
+    }
+
+    // Keyboard accessibility
+    chatContainer.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            widgetContainer.remove();
+            chatContainer.classList.remove('open');
         }
     });
-    widgetContainer.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') widgetContainer.remove();
-    });
+
+    // Enhanced textarea with Enter to send
+    if (textarea) {
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const message = textarea.value.trim();
+                if (message) {
+                    sendMessage(message);
+                    textarea.value = '';
+                }
+            }
+        });
+    }
 })();
