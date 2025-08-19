@@ -7,6 +7,11 @@
     /**
      * @class ChatWidget
      * @description Gestiona la creación, estado y funcionalidad de un widget de chat flotante.
+     * Mejoras:
+     * - UI responsive (mobile-first), expansión a pantalla completa en móviles.
+     * - Soporte de contenido HTML/Markdown para mensajes del bot (con sanitización).
+     * - Sugerencias configurables por variables.
+     * - Formulario de pre-chat (nombre completo, email) para construir y persistir sessionId.
      */
     class ChatWidget {
         /**
@@ -24,6 +29,7 @@
                 // Persiste el estado del modo oscuro o lo infiere del sistema operativo.
                 darkMode: localStorage.getItem('chat_dark_mode') === 'true' || window.matchMedia('(prefers-color-scheme: dark)').matches,
                 isExpanded: false,
+                userProfile: null, // { fullName, email }
             };
 
             this._init();
@@ -58,7 +64,7 @@
                     name: 'Chat',
                     welcomeText: '¡Hola! ¿Cómo podemos ayudarte?',
                     responseTimeText: 'Normalmente respondemos en unos minutos.',
-                    poweredBy: { text: 'Powered by DaverodtechAI', link: 'https://landing.daverod.tech' }
+                    poweredBy: { text: 'Powered by DaverodtechAI', link: 'https://www.daverod.tech' }
                 },
                 style: {
                     primaryColor: '#854fff',
@@ -66,6 +72,27 @@
                     position: 'right',
                     backgroundColor: 'rgba(255, 255, 255, 0.6)',
                     fontColor: '#333333'
+                },
+                content: {
+                    parseMarkdown: true,
+                    allowBotHTML: true, // Solo para mensajes del bot; siempre se sanitiza
+                },
+                suggestions: {
+                    enabled: true,
+                    items: [
+                        '¿Cuáles son los horarios?',
+                        '¿Qué servicios ofrecen?',
+                        '¿Cómo me inscribo?',
+                        '¿Tienen clases online?'
+                    ],
+                },
+                prechat: {
+                    enabled: true,
+                    fields: {
+                        fullNameLabel: 'Nombre completo',
+                        emailLabel: 'Email',
+                        submitText: 'Comenzar chat',
+                    },
                 },
                 icons: {
                     expand: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M3 3l7 7M21 21l-7-7"/></svg>',
@@ -81,6 +108,9 @@
                 webhook: { ...defaultConfig.webhook, ...userConfig.webhook },
                 branding: { ...defaultConfig.branding, ...userConfig.branding },
                 style: { ...defaultConfig.style, ...userConfig.style },
+                content: { ...defaultConfig.content, ...(userConfig.content || {}) },
+                suggestions: { ...defaultConfig.suggestions, ...(userConfig.suggestions || {}) },
+                prechat: { ...defaultConfig.prechat, ...(userConfig.prechat || {}) },
                 icons: { ...defaultConfig.icons, ...userConfig.icons }
             };
         }
@@ -107,7 +137,7 @@
         _createDOM() {
             const widgetContainer = document.createElement('div');
             widgetContainer.className = 'n8n-chat-widget';
-            const { branding, style, icons } = this.config;
+            const { branding, style } = this.config;
 
             const brandHeaderHTML = `
                 <div class="brand-header">
@@ -127,22 +157,37 @@
                         ${brandHeaderHTML}
                         <div class="new-conversation">
                             <h2 class="welcome-text">${branding.welcomeText}</h2>
+                            ${this.config.prechat.enabled ? `
+                            <form class="prechat-form" novalidate>
+                                <div class="form-row">
+                                    <label>${this.config.prechat.fields.fullNameLabel}
+                                        <input type="text" name="fullName" placeholder="Tu nombre y apellido" required />
+                                    </label>
+                                </div>
+                                <div class="form-row">
+                                    <label>${this.config.prechat.fields.emailLabel}
+                                        <input type="email" name="email" placeholder="tu@email.com" required />
+                                    </label>
+                                </div>
+                                <button type="submit" class="new-chat-btn">
+                                    <svg class="message-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z"/></svg>
+                                    ${this.config.prechat.fields.submitText}
+                                </button>
+                                <p class="response-text">${branding.responseTimeText}</p>
+                            </form>
+                            ` : `
                             <button class="new-chat-btn">
                                 <svg class="message-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z"/></svg>
                                 Envíanos un mensaje
                             </button>
                             <p class="response-text">${branding.responseTimeText}</p>
+                            `}
                         </div>
                     </div>
                     <div class="view chat-interface-view" style="display: none;">
                         ${brandHeaderHTML}
                         <div class="chat-messages"></div>
-                        <div class="suggestions-container" style="display: none;">
-                            <button class="suggestion-chip">¿Cuáles son los horarios?</button>
-                            <button class="suggestion-chip">¿Qué servicios ofrecen?</button>
-                            <button class="suggestion-chip">¿Cómo me inscribo?</button>
-                            <button class="suggestion-chip">¿Tienen clases online?</button>
-                        </div>
+                        <div class="suggestions-container" style="display: none;"></div>
                         <div class="chat-input">
                             <input type="file" class="file-input" style="display: none;" multiple accept=".txt,.md,.doc,.docx">
                             <button type="button" class="file-upload-btn" title="Adjuntar archivo">📎</button>
@@ -179,6 +224,7 @@
                 newConversationView: '.new-conversation-view',
                 chatInterfaceView: '.chat-interface-view',
                 newChatBtn: '.new-chat-btn',
+                prechatForm: '.prechat-form',
                 messagesContainer: '.chat-messages',
                 textarea: 'textarea',
                 sendButton: '.send-btn',
@@ -212,6 +258,12 @@
             if (this.state.darkMode) {
                 widget.classList.add('dark-mode');
             }
+
+            // Render dinámico de chips de sugerencias desde config
+            this._renderSuggestions();
+
+            // Cargar perfil si existe
+            this._loadUserProfile();
         }
 
         /**
@@ -221,7 +273,24 @@
         _addEventListeners() {
             const el = this.elements;
             el.toggleButton?.addEventListener('click', () => this._toggleChat(true));
-            el.newChatBtn?.addEventListener('click', () => this._startNewConversation());
+
+            // Pre-chat: iniciar conversación desde el formulario o botón
+            if (el.prechatForm) {
+                el.prechatForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const form = e.currentTarget;
+                    const fullName = form.fullName?.value?.trim();
+                    const email = form.email?.value?.trim();
+                    if (!fullName || !email || !this._isValidEmail(email)) {
+                        alert('Por favor, ingresa un nombre y un email válidos.');
+                        return;
+                    }
+                    this._saveUserProfile({ fullName, email });
+                    this._startNewConversation();
+                });
+            } else {
+                el.newChatBtn?.addEventListener('click', () => this._startNewConversation());
+            }
             el.sendButton?.addEventListener('click', () => this._handleSendMessage());
             el.fileUploadBtn?.addEventListener('click', () => el.fileInput?.click());
             el.fileInput?.addEventListener('change', e => this._handleFileUpload(e));
@@ -288,6 +357,10 @@
          */
         _toggleSuggestions(show) {
             if (!this.elements.suggestionsContainer) return;
+            if (!this.config.suggestions.enabled) {
+                this.elements.suggestionsContainer.style.display = 'none';
+                return;
+            }
             const hasText = this.elements.textarea?.value.trim();
             this.elements.suggestionsContainer.style.display = !hasText && show ? 'block' : 'none';
         }
@@ -391,12 +464,20 @@
          * @private
          */
         async _startNewConversation() {
-            this.state.sessionId = crypto.randomUUID();
+            // Asegurar perfil
+            if (this.config.prechat.enabled && !this.state.userProfile) {
+                this._toggleChat(true);
+                this._toggleView(false);
+                return;
+            }
+
+            // Construir/persistir sessionId
+            this.state.sessionId = this._buildSessionId();
             const data = [{
                 action: "loadPreviousSession",
                 sessionId: this.state.sessionId,
                 route: this.config.webhook.route,
-                metadata: { userId: "" }
+                metadata: { userId: this.state.sessionId, user: this.state.userProfile || null }
             }];
 
             const responseData = await this._apiCall(data);
@@ -429,7 +510,7 @@
          * @param {string} message - El texto del mensaje.
          * @param {object|null} fileData - Datos del archivo adjunto.
          */
-        async _sendMessage(message, fileData = null) {
+    async _sendMessage(message, fileData = null) {
             const sanitizedMessage = this._sanitizeInput(message);
             this._addMessage(message, 'user');
             this._showTypingIndicator();
@@ -439,7 +520,7 @@
                 sessionId: this.state.sessionId,
                 route: this.config.webhook.route,
                 chatInput: sanitizedMessage,
-                metadata: { userId: "", fileData }
+        metadata: { userId: this.state.sessionId, user: this.state.userProfile || null, fileData }
             };
 
             const responseData = await this._apiCall(messageData);
@@ -462,11 +543,17 @@
         _addMessage(content, type, isHTML = false) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `chat-message ${type}`;
+            const messageInner = document.createElement('div');
+            messageInner.className = 'message-content';
             if (isHTML) {
-                messageDiv.innerHTML = content;
+                messageInner.innerHTML = this._sanitizeHTML(content);
+            } else if (type === 'bot' && (this.config.content.parseMarkdown || this.config.content.allowBotHTML)) {
+                const html = this._renderMessageContent(content);
+                messageInner.innerHTML = html;
             } else {
-                messageDiv.textContent = content;
+                messageInner.textContent = content;
             }
+            messageDiv.appendChild(messageInner);
             this.elements.messagesContainer?.appendChild(messageDiv);
             this.elements.messagesContainer.scrollTop = this.elements.messagesContainer.scrollHeight;
         }
@@ -507,6 +594,150 @@
             const div = document.createElement('div');
             div.textContent = input;
             return div.innerHTML;
+        }
+
+        /**
+         * Convierte texto (Markdown/HTML) a HTML seguro para mensajes del bot.
+         * - Si hay Markdown, se transforma a HTML básico.
+         * - Siempre se sanitiza al final.
+         * @private
+         */
+        _renderMessageContent(text) {
+            let html = text;
+            if (this.config.content.parseMarkdown) {
+                html = this._markdownToHTML(text);
+            }
+            if (!this.config.content.allowBotHTML) {
+                // Si no permitimos HTML de bot, solo dejamos el generado por Markdown
+                return this._sanitizeHTML(html);
+            }
+            return this._sanitizeHTML(html);
+        }
+
+        /**
+         * Conversor Markdown -> HTML simple (negritas, itálicas, código, enlaces, listas, encabezados)
+         * Nota: No pretende cubrir todo el estándar; suficiente para respuestas comunes.
+         * @private
+         */
+        _markdownToHTML(md) {
+            if (!md) return '';
+            let s = md;
+            // Escapar primero para evitar inyección, luego reinsertar patrones convertidos
+            s = this._sanitizeInput(s);
+            // Bloques de código ```
+            s = s.replace(/```([\s\S]*?)```/g, (m, code) => `<pre><code>${code.replace(/\n/g, '\n')}</code></pre>`);
+            // Encabezados #, ##, ###
+            s = s.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
+                 .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
+                 .replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+            // Listas no ordenadas
+            s = s.replace(/^(?:- |\* )(.*)$/gm, '<li>$1</li>');
+            s = s.replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
+            // Listas ordenadas
+            s = s.replace(/^\d+\.\s+(.*)$/gm, '<li>$1</li>');
+            s = s.replace(/(<li>.*<\/li>\n?)+/g, (m) => m.includes('<ul>') ? m : `<ol>${m}</ol>`);
+            // Enlaces [texto](url)
+            s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+            // Negrita **texto**
+            s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            // Itálica *texto*
+            s = s.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+            // Código inline `code`
+            s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // Saltos de línea
+            s = s.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>');
+            // Envolver en párrafos
+            s = `<p>${s}</p>`;
+            return s;
+        }
+
+        /**
+         * Sanitiza HTML permitiendo solo un conjunto mínimo de etiquetas/atributos.
+         * @private
+         */
+        _sanitizeHTML(html) {
+            const template = document.createElement('template');
+            template.innerHTML = html || '';
+            const allowedTags = new Set(['A','B','STRONG','EM','I','U','P','BR','UL','OL','LI','CODE','PRE','H1','H2','H3','BLOCKQUOTE','SPAN']);
+            const allowedAttrs = { 'A': ['href','target','rel'] };
+            const walker = (node) => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    const tag = node.tagName;
+                    if (!allowedTags.has(tag)) {
+                        const text = document.createTextNode(node.textContent || '');
+                        node.replaceWith(text);
+                        return;
+                    }
+                    // Limitar atributos
+                    [...node.attributes].forEach(attr => {
+                        const ok = allowedAttrs[tag]?.includes(attr.name.toLowerCase());
+                        if (!ok) node.removeAttribute(attr.name);
+                    });
+                    // Enlaces seguros
+                    if (tag === 'A') {
+                        const href = node.getAttribute('href') || '';
+                        if (!/^https?:\/\//i.test(href)) {
+                            node.removeAttribute('href');
+                        } else {
+                            node.setAttribute('target','_blank');
+                            node.setAttribute('rel','noopener noreferrer');
+                        }
+                    }
+                }
+                // Recorre hijos (snapshot para evitar mutaciones en vivo)
+                [...node.childNodes].forEach(walker);
+            };
+            [...template.content.childNodes].forEach(walker);
+            return template.innerHTML;
+        }
+
+        /** Email simple validator */
+        _isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        /** Persistir y cargar perfil del usuario */
+        _saveUserProfile(profile) {
+            this.state.userProfile = profile;
+            try {
+                localStorage.setItem('chat_user_profile', JSON.stringify(profile));
+            } catch {}
+        }
+        _loadUserProfile() {
+            try {
+                const raw = localStorage.getItem('chat_user_profile');
+                if (raw) this.state.userProfile = JSON.parse(raw);
+            } catch {}
+        }
+
+        /** Construye un sessionId estable basado en nombre y email o genera uno aleatorio */
+        _buildSessionId() {
+            if (this.state.userProfile?.fullName && this.state.userProfile?.email) {
+                const slug = this.state.userProfile.fullName
+                  .toLowerCase()
+                  .normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g,'')
+                  .replace(/[^a-z0-9]+/g,'-')
+                  .replace(/(^-|-$)/g,'');
+                const email = this.state.userProfile.email.toLowerCase();
+                return `${slug}|${email}`;
+            }
+            return crypto.randomUUID();
+        }
+
+        /** Renderizar chips de sugerencias desde config */
+        _renderSuggestions() {
+            const cont = this.elements.suggestionsContainer;
+            if (!cont) return;
+            cont.innerHTML = '';
+            if (!this.config.suggestions.enabled) return;
+            const items = this.config.suggestions.items || [];
+            items.forEach(txt => {
+                const btn = document.createElement('button');
+                btn.className = 'suggestion-chip';
+                btn.textContent = txt;
+                cont.appendChild(btn);
+            });
         }
 
         /**
@@ -697,6 +928,11 @@
                     box-shadow: 0 4px 15px rgba(133, 79, 255, 0.3); 
                 }
                 .n8n-chat-widget .new-chat-btn:hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(133, 79, 255, 0.4); }
+                .n8n-chat-widget .prechat-form { width: 100%; max-width: 320px; text-align: left; }
+                .n8n-chat-widget .prechat-form .form-row { width: 100%; margin-bottom: 12px; }
+                .n8n-chat-widget .prechat-form label { display: block; color: var(--chat--color-font); font-size: 13px; margin-bottom: 6px; opacity: 0.85; }
+                .n8n-chat-widget .prechat-form input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.08); background: rgba(255,255,255,0.5); color: var(--chat--color-font); font-family: inherit; }
+                .n8n-chat-widget.dark-mode .prechat-form input { background: rgba(0,0,0,0.25); border-color: rgba(255,255,255,0.12); }
                 .n8n-chat-widget .message-icon { width: 20px; height: 20px; }
                 .n8n-chat-widget .response-text { font-size: 14px; color: var(--chat--color-font); opacity: 0.7; margin: 0; }
                 .n8n-chat-widget .chat-interface-view { height: 100%; }
@@ -717,6 +953,17 @@
                     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); 
                     border-radius: 18px 18px 18px 4px; 
                 }
+                .n8n-chat-widget .message-content { width: 100%; }
+                .n8n-chat-widget .message-content h1,
+                .n8n-chat-widget .message-content h2,
+                .n8n-chat-widget .message-content h3 { margin: 0.2em 0; line-height: 1.2; }
+                .n8n-chat-widget .message-content p { margin: 0.4em 0; }
+                .n8n-chat-widget .message-content code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 6px; }
+                .n8n-chat-widget .message-content pre { background: rgba(0,0,0,0.08); padding: 10px; border-radius: 10px; overflow: auto; }
+                .n8n-chat-widget.dark-mode .message-content code,
+                .n8n-chat-widget.dark-mode .message-content pre { background: rgba(255,255,255,0.12); }
+                .n8n-chat-widget .message-content ul, .n8n-chat-widget .message-content ol { padding-left: 18px; margin: 0.4em 0; }
+                .n8n-chat-widget .message-content a { color: var(--chat--color-primary); text-decoration: underline; }
                 .n8n-chat-widget .chat-input { 
                     padding: 12px 16px; background: rgba(255,255,255,0.2); 
                     border-top: 1px solid var(--chat--color-border); 
@@ -803,6 +1050,20 @@
                     cursor: pointer; font-size: 12px; transition: background 0.2s; 
                 }
                 .n8n-chat-widget .suggestion-chip:hover { background: rgba(133, 79, 255, 0.2); }
+
+                /* Responsive */
+                @media (max-width: 600px) {
+                    .n8n-chat-widget .chat-container { 
+                        right: 12px; left: 12px; bottom: 12px; 
+                        width: calc(100vw - 24px); height: 70vh; 
+                    }
+                    .n8n-chat-widget .chat-container.expanded, 
+                    .n8n-chat-widget .chat-container.open.expanded { 
+                        width: 100vw; height: 100vh; max-width: 100vw; border-radius: 0; right: 0; left: 0; bottom: 0; 
+                    }
+                    .n8n-chat-widget .chat-toggle { width: 54px; height: 54px; bottom: 12px; right: 12px; }
+                    .n8n-chat-widget .chat-message { max-width: 92%; }
+                }
             `;
         }
     }

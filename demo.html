@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>n8n Chatbot Template — Demo</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; }
+    .container { max-width: 880px; margin: 0 auto; }
+    h1 { margin-bottom: 0.25rem; }
+    p { color: #555; }
+    .note { background: #f6f7fb; border: 1px solid #e7e9f3; padding: 1rem; border-radius: 8px; }
+    code { background: #f2f2f2; padding: 0 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>n8n Chatbot Template — Demo</h1>
+    <p>This page loads <code>davetechai-chat-widget.js</code> and initializes it via <code>window.ChatWidgetConfig</code>.</p>
+    <div class="note">
+      <strong>Tip:</strong> Open your browser console to see any network or permission errors while testing.
+    </div>
+  </div>
+
+  <script>
+    // Minimal configuration. Replace webhook.url with your n8n Webhook URL.
+    window.ChatWidgetConfig = {
+      webhook: {
+        url: 'https://kaizendeploy.daverod.tech/webhook/id/chat', // e.g. n8n Webhook node test URL
+        route: 'chat'
+      },
+      branding: {
+        logo: 'https://avatars.githubusercontent.com/u/45487711?s=200&v=4',
+        name: 'Support',
+        welcomeText: '¡Hola! ¿Cómo podemos ayudarte?',
+        responseTimeText: 'Normalmente respondemos en unos minutos.',
+        poweredBy: { text: 'Powered by DaverodtechAI', link: 'https://www.daverod.tech' }
+      },
+      style: {
+        position: 'right',
+        primaryColor: '#854fff',
+        secondaryColor: '#6b3fd4',
+        backgroundColor: 'rgba(255, 255, 255, 0.6)',
+        fontColor: '#333333'
+      }
+      // icons: { expand, collapse, darkMode, lightMode, clearHistory, close } // Optional SVG strings or image URLs
+    };
+  </script>
+
+  <!-- The widget script must be loaded after window.ChatWidgetConfig is set -->
+  <script src="./davetechai-chat-widget.js"></script>
+</body>
+</html>
