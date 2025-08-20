@@ -5,20 +5,69 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>n8n Chatbot Template — Demo</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; }
-    .container { max-width: 880px; margin: 0 auto; }
-    h1 { margin-bottom: 0.25rem; }
-    p { color: #555; }
-    .note { background: #f6f7fb; border: 1px solid #e7e9f3; padding: 1rem; border-radius: 8px; }
-    code { background: #f2f2f2; padding: 0 4px; border-radius: 4px; }
+    :root {
+      --accent-1: #3b82f6; /* blue */
+      --accent-2: #22c55e; /* green */
+      --accent-3: #8b5cf6; /* purple */
+      --glass-bg: rgba(255,255,255,0.22);
+      --glass-brd: rgba(255,255,255,0.35);
+      --text: #1f2937;
+      --muted: #6b7280;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, var(--accent-1), var(--accent-2) 50%, var(--accent-3));
+      display: grid; place-items: center; padding: 24px;
+      min-height: 100vh; overflow-x: hidden;
+    }
+    .modal-shell {
+      width: min(960px, calc(100vw - 32px));
+      border-radius: 18px; padding: 0; position: relative;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-brd);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.35);
+      background: linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0.1));
+    }
+    .modal-header h1 { margin: 0; font-size: 18px; color: #fff; letter-spacing: .2px; }
+    .modal-body { padding: 24px; display: grid; gap: 12px; }
+    .note { color: #e5e7eb; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.25); padding: 14px; border-radius: 12px; }
+    .note strong { color: #fff; }
+    code { background: rgba(255,255,255,0.18); color: #fff; padding: 2px 6px; border-radius: 6px; }
+    .footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.35); }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px; color: #fff; font-weight: 600;
+      background: linear-gradient(135deg, rgba(59,130,246,0.9), rgba(34,197,94,0.9) 50%, rgba(139,92,246,0.95));
+      padding: 8px 12px; border-radius: 999px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    @media (max-width: 640px) {
+      .modal-body { padding: 16px; }
+      .footer { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>n8n Chatbot Template — Demo</h1>
-    <p>This page loads <code>davetechai-chat-widget.js</code> and initializes it via <code>window.ChatWidgetConfig</code>.</p>
-    <div class="note">
-      <strong>Tip:</strong> Open your browser console to see any network or permission errors while testing.
+  <div class="modal-shell" role="region" aria-label="Demo container">
+    <div class="modal-header">
+      <h1>n8n Chatbot Template — Demo</h1>
+      <span class="badge">Gradient • Glass • Shadow</span>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0;color:#f3f4f6">This page loads <code>davetechai-chat-widget.js</code> and initializes it via <code>window.ChatWidgetConfig</code>.</p>
+      <div class="note">
+        <strong>Tip:</strong> Open your browser console to see any network or permission errors while testing.
+      </div>
+    </div>
+    <div class="footer">
+      <span style="color:#e5e7eb">Lightweight embeddable widget • No build tools needed</span>
+      <span class="badge">Blue • Green • Purple</span>
     </div>
   </div>
 
