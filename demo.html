@@ -55,6 +55,38 @@
     .footer { padding:18px 26px; border-top:1px solid #e2e8f0; background:#f8fafc; font-size:12px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .footer a { color:#6366f1; text-decoration:none; font-weight:600; }
     .footer a:hover { text-decoration:underline; }
+  /* Step 5 redesigned */
+  .export-suite { display:flex; flex-direction:column; gap:20px; }
+  .export-header { display:flex; flex-direction:column; gap:6px; }
+  .export-summary { font-size:12px; color:#64748b; display:flex; flex-wrap:wrap; gap:14px; }
+  .export-summary span { display:inline-flex; align-items:center; gap:4px; background:#f1f5f9; padding:4px 10px; border-radius:999px; font-weight:500; }
+  .export-toolbar { position:sticky; top:0; background:#ffffffd9; backdrop-filter:blur(6px); display:flex; flex-wrap:wrap; gap:8px; padding:10px 12px; border:1px solid #e2e8f0; border-radius:14px; box-shadow:0 4px 16px -6px rgba(0,0,0,.06); }
+  .export-toolbar button { --btn-bg:#f1f5f9; --btn-bg-hover:#e2e8f0; padding:8px 14px; font-size:12px; font-weight:500; }
+  .export-tabs { display:flex; gap:6px; border-bottom:1px solid #e2e8f0; margin-top:4px; overflow:auto; }
+  .export-tab { background:transparent; border:none; font:inherit; font-size:13px; padding:10px 14px; cursor:pointer; border-radius:10px 10px 0 0; color:#475569; font-weight:500; position:relative; }
+  .export-tab[aria-selected="true"] { background:#0f172a; color:#f1f5f9; }
+  .export-tab[aria-selected="true"]::after { content:''; position:absolute; inset:0; border-radius:10px 10px 0 0; box-shadow:0 2px 6px -2px rgba(15,23,42,.5); }
+  .export-panels { border:1px solid #e2e8f0; border-top:none; border-radius:0 0 16px 16px; overflow:hidden; background:#0f172a; }
+  .export-panel { display:none; padding:0; }
+  .export-panel[data-active="true"] { display:block; }
+  .code-surface { position:relative; max-height:360px; overflow:auto; font-size:12px; line-height:1.5; }
+  .code-surface pre { margin:0; background:transparent; color:#e2e8f0; padding:20px 22px 28px; font-size:12px; }
+  .token-groups { padding:20px; display:grid; gap:18px; background:#ffffff; color:#0f172a; }
+  .token-group { border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px; background:#f8fafc; }
+  .token-group h4 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:#334155; }
+  .token-list { display:grid; gap:6px; font-size:12px; }
+  .token-item { display:flex; justify-content:space-between; gap:8px; background:#fff; border:1px solid #e2e8f0; padding:6px 10px; border-radius:8px; }
+  .token-item code { color:#475569; }
+  .toast { position:fixed; z-index:9999; bottom:20px; right:20px; background:#0f172a; color:#f1f5f9; padding:12px 16px; border-radius:14px; font-size:13px; box-shadow:0 8px 28px -6px rgba(0,0,0,.4); display:flex; gap:10px; align-items:center; animation:fadeIn .25s ease; }
+  .toast.success { background:#065f46; }
+  .toast.error { background:#b91c1c; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px);} to { opacity:1; transform:translateY(0);} }
+  .import-modal { position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; padding:24px; z-index:9998; }
+  .import-dialog { width:min(560px,100%); background:#ffffff; border-radius:20px; padding:28px 30px; box-shadow:0 12px 42px -10px rgba(0,0,0,.35); display:flex; flex-direction:column; gap:18px; }
+  .import-dialog textarea { width:100%; min-height:200px; font:12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, 'Courier New', monospace; border:1px solid #cbd5e1; border-radius:12px; padding:12px 14px; resize:vertical; background:#f8fafc; }
+  .import-dialog textarea:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.25); background:#fff; }
+  @media (max-width: 700px){ .export-toolbar { position:static; } }
+  @media (max-width: 540px){ .export-tab { flex:1 0 auto; font-size:12px; padding:8px 10px; } .export-tabs { gap:2px; } }
   </style>
 </head>
 <body>
@@ -247,29 +279,38 @@
             });
           panel.appendChild(fg);
         } else if (s.key === 'exportar') {
-          panel.innerHTML += `
-            <div class="flex flex-col gap-6">
-              <div>
-                <h3 style="margin:0 0 4px;font-size:16px;font-weight:600;color:#0f172a">JSON final</h3>
-                <p class="lead" style="margin-top:0">Pulsa "Finalizar" para generar y copiar (también puedes copiar manualmente).</p>
-                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px">
-                  <button type="button" class="btn-secondary btn" id="toggle-wrap" style="--btn-bg:#f8fafc;--btn-bg-hover:#e2e8f0; padding:8px 14px; font-size:12px">Wrap</button>
-                  <button type="button" class="btn-secondary btn" id="download-config" style="--btn-bg:#f8fafc;--btn-bg-hover:#e2e8f0; padding:8px 14px; font-size:12px">Descargar config.js</button>
-                  <span id="copy-badge" style="display:none; background:#d1fae5; color:#065f46; padding:6px 10px; border-radius:12px; font-size:11px; font-weight:600">Copiado ✓</span>
-                </div>
-                <pre class="export-block" id="export-block" style="max-height:320px"><code id="export-code">{}</code><button type="button" class="btn-secondary copy" id="copy-config">Copiar</button></pre>
+          panel.innerHTML = `
+            <div class="export-suite">
+              <div class="export-header">
+                <h2 style="margin:0;font-size:20px;font-weight:600;letter-spacing:.3px;color:#0f172a">Exporta & Integra</h2>
+                <p class="lead" style="margin:0">Copia, ajusta o importa tu configuración final. Usa los tabs para ver JSON, Script listo o Tokens.</p>
+                <div class="export-summary" id="export-summary"></div>
               </div>
-              <div class="tips">
-                <h3 style="margin:4px 0 8px;font-size:15px;font-weight:600;color:#0f172a">¿Qué sigue?</h3>
-                <p><strong>1.</strong> Pega el JSON dentro de un <code>&lt;script&gt;</code> definiendo <code>window.ChatWidgetConfig</code>.</p>
-                <p><strong>2.</strong> Carga el script: <code>&lt;script src="/davetechai-chat-widget.js"&gt;&lt;/script&gt;</code>.</p>
-                <p><strong>3.</strong> Ajusta el webhook a tu flujo n8n real.</p>
-                <p><strong>4.</strong> Opcional: <code>window.N8NChatWidgetInstance.updateTheme({...})</code> para cambios en vivo.</p>
-                <p><strong>5.</strong> Personaliza íconos vía <code>icons</code> en la config.</p>
-                <h3 style="margin:12px 0 4px;font-size:14px;font-weight:600;color:#0f172a">Tokens de estilo</h3>
-                <div style="overflow:auto">
-                  <table class="tokens-table" id="tokens-table"><thead><tr><th>Propiedad</th><th>Valor</th></tr></thead><tbody></tbody></table>
-                </div>
+              <div class="export-toolbar" id="export-toolbar" role="toolbar" aria-label="Acciones de exportación">
+                <button type="button" class="btn-secondary btn" data-action="copy-json">Copiar JSON</button>
+                <button type="button" class="btn-secondary btn" data-action="copy-style">Copiar style</button>
+                <button type="button" class="btn-secondary btn" data-action="toggle-min">Minificar</button>
+                <button type="button" class="btn-secondary btn" data-action="toggle-wrap">Wrap</button>
+                <button type="button" class="btn-secondary btn" data-action="download">Descargar</button>
+                <button type="button" class="btn-secondary btn" data-action="import">Importar</button>
+              </div>
+              <div class="export-tabs" role="tablist">
+                <button class="export-tab" role="tab" aria-selected="true" data-tab="json">JSON</button>
+                <button class="export-tab" role="tab" aria-selected="false" data-tab="script">Script</button>
+                <button class="export-tab" role="tab" aria-selected="false" data-tab="tokens">Tokens</button>
+              </div>
+              <div class="export-panels">
+                <div class="export-panel" data-panel="json" data-active="true"><div class="code-surface"><pre><code id="export-code">{}</code></pre></div></div>
+                <div class="export-panel" data-panel="script"><div class="code-surface"><pre><code id="export-script"></code></pre></div></div>
+                <div class="export-panel" data-panel="tokens"><div class="token-groups" id="token-groups"></div></div>
+              </div>
+              <div class="tips" style="margin-top:4px">
+                <h3 style="margin:0 0 8px;font-size:15px;font-weight:600;color:#0f172a">Siguientes pasos rápidos</h3>
+                <p><strong>1.</strong> Pega el JSON en tu página antes de cargar <code>davetechai-chat-widget.js</code>.</p>
+                <p><strong>2.</strong> Usa el tab Script si quieres snippet listo.</p>
+                <p><strong>3.</strong> Ajusta el webhook a tu flujo real.</p>
+                <p><strong>4.</strong> Usa <code>updateTheme()</code> para cambios dinámicos.</p>
+                <p><strong>5.</strong> Revisa tokens para crear variaciones (dark, marketing, etc.).</p>
               </div>
             </div>`;
         }
@@ -311,34 +352,8 @@
       finishBtn.style.display = currentStep === stepsDefinition.length -1 ? 'inline-flex' : 'none';
       // refrescar refs al export si estamos en el paso final
       if (currentStep === stepsDefinition.length -1) {
-        exportCodeEl = document.getElementById('export-code');
-        copyBtn = document.getElementById('copy-config');
-        if (copyBtn && !copyBtn.dataset.bound) {
-          copyBtn.addEventListener('click', () => { copyToClipboard(exportCodeEl.textContent); showCopied(); });
-          copyBtn.dataset.bound = '1';
-        }
-  // generar export automáticamente al entrar al paso final
-  applyThemeLive();
-        // toggle wrap
-        const wrapBtn = document.getElementById('toggle-wrap');
-        const exportBlock = document.getElementById('export-block');
-        if (wrapBtn && !wrapBtn.dataset.bound){
-          wrapBtn.addEventListener('click', () => { exportBlock.classList.toggle('wrap'); });
-          wrapBtn.dataset.bound = '1';
-        }
-        // download button
-        const dlBtn = document.getElementById('download-config');
-        if (dlBtn && !dlBtn.dataset.bound){
-          dlBtn.addEventListener('click', () => {
-            const blob = new Blob([exportCodeEl.textContent], { type:'application/javascript' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'config.js';
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
-          });
-          dlBtn.dataset.bound='1';
-        }
+        initExportSuite();
+        applyThemeLive(); // auto generate
       }
     }
 
@@ -376,19 +391,118 @@
     }
 
     function renderExport(cfg) {
-      if (!exportCodeEl) return; // aún no en paso 5
-      const json = JSON.stringify(cfg, null, 2);
-      exportCodeEl.textContent = `window.ChatWidgetConfig = ${json};\n` + 'window.N8NChatWidgetInstance?.updateTheme(window.ChatWidgetConfig.style);';
-      // tokens table
-      const tbl = document.querySelector('#tokens-table tbody');
-      if (tbl) {
-        tbl.innerHTML = '';
-        Object.entries(cfg.style).forEach(([k,v])=> {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td style="font-weight:600">${k}</td><td><code>${v}</code></td>`;
-          tbl.appendChild(tr);
+      const codeNode = document.getElementById('export-code');
+      if (!codeNode) return;
+      const pretty = JSON.stringify(cfg, null, 2);
+      const minified = JSON.stringify(cfg);
+      const wrapper = (isMin) => `window.ChatWidgetConfig = ${isMin ? minified : pretty};\nwindow.N8NChatWidgetInstance?.updateTheme(window.ChatWidgetConfig.style);`;
+      const suite = document.querySelector('.export-suite');
+      const toolbar = document.getElementById('export-toolbar');
+      if (toolbar && !toolbar.dataset.state) toolbar.dataset.state = JSON.stringify({ min:false, wrap:false });
+      const state = toolbar ? JSON.parse(toolbar.dataset.state) : { min:false, wrap:false };
+      codeNode.textContent = wrapper(state.min);
+      // script tab
+      const scriptNode = document.getElementById('export-script');
+      if (scriptNode) {
+        scriptNode.textContent = `<script>\n${wrapper(state.min)}\n<\/script>`;
+      }
+      // summary
+      const summary = document.getElementById('export-summary');
+      if (summary) {
+        summary.innerHTML = '';
+        const add = (txt)=> { const sp=document.createElement('span'); sp.textContent=txt; summary.appendChild(sp); };
+        add(`Webhook: ${cfg.webhook.url.replace(/https?:\/\//,'')}`);
+        add(`Route: ${cfg.webhook.route}`);
+        add(`Brand: ${cfg.branding.name}`);
+        add(Object.keys(cfg.style).length + ' tokens');
+      }
+      // tokens groups
+      const grp = document.getElementById('token-groups');
+      if (grp) {
+        grp.innerHTML = '';
+        const groups = {
+          Colores: ['primaryColor','secondaryColor','backgroundColor','fontColor','userBubbleColor','botBubbleColor','userTextColor','botTextColor'],
+          Layout: ['position','borderRadius','fontSize'],
+          Efectos: ['headerBackground','inputBackground','chatBackgroundBlur','shadowColor']
+        };
+        Object.entries(groups).forEach(([title, keys]) => {
+          const div = document.createElement('div');
+          div.className = 'token-group';
+          div.innerHTML = `<h4>${title}</h4>`;
+          const list = document.createElement('div'); list.className='token-list';
+          keys.forEach(k=> { if (k in cfg.style){ const item=document.createElement('div'); item.className='token-item'; item.innerHTML = `<span>${k}</span><code>${cfg.style[k]||'<vacío>'}</code>`; list.appendChild(item);} });
+          div.appendChild(list); grp.appendChild(div);
         });
       }
+    }
+
+    // ------------------ EXPORT SUITE LOGIC ------------------
+    function initExportSuite(){
+      if (document.getElementById('export-toolbar')?.dataset.bound) return; // already init
+      const toolbar = document.getElementById('export-toolbar');
+      if (!toolbar) return;
+      toolbar.dataset.bound='1';
+      toolbar.dataset.state = JSON.stringify({ min:false, wrap:false });
+      toolbar.addEventListener('click', (e)=> {
+        const btn = e.target.closest('button[data-action]');
+        if(!btn) return;
+        const action = btn.dataset.action;
+        const codeNode = document.getElementById('export-code');
+        const scriptNode = document.getElementById('export-script');
+        const state = JSON.parse(toolbar.dataset.state);
+        const cfg = { webhook: window.ChatWidgetConfig.webhook, branding: window.ChatWidgetConfig.branding, style: window.ChatWidgetConfig.style };
+        if (action === 'toggle-min') { state.min = !state.min; btn.textContent = state.min ? 'Pretty' : 'Minificar'; toolbar.dataset.state=JSON.stringify(state); renderExport(cfg); showToast(state.min ? 'Código minificado' : 'Formato expandido'); }
+        else if (action === 'toggle-wrap') { state.wrap = !state.wrap; codeNode.parentElement.classList.toggle('wrap', state.wrap); btn.textContent = state.wrap ? 'No wrap' : 'Wrap'; toolbar.dataset.state=JSON.stringify(state); }
+        else if (action === 'copy-json') { copyToClipboard(codeNode.textContent); showToast('JSON copiado','success'); }
+        else if (action === 'copy-style') { copyToClipboard(JSON.stringify(cfg.style, null, state.min?0:2)); showToast('Style copiado','success'); }
+        else if (action === 'download') { const blob=new Blob([codeNode.textContent],{type:'application/javascript'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='config.js'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1500); showToast('Descarga iniciada','success'); }
+        else if (action === 'import') { openImportModal(); }
+      });
+      // tabs
+      document.querySelectorAll('.export-tab').forEach(tab=> {
+        tab.addEventListener('click', ()=> {
+          document.querySelectorAll('.export-tab').forEach(t=> t.setAttribute('aria-selected','false'));
+          tab.setAttribute('aria-selected','true');
+          const target = tab.dataset.tab;
+            document.querySelectorAll('.export-panel').forEach(p=> { p.dataset.active = (p.dataset.panel===target)?'true':'false'; });
+        });
+      });
+    }
+
+    function showToast(msg, type='default'){
+      const old = document.querySelector('.toast'); if (old) old.remove();
+      const div = document.createElement('div'); div.className='toast'+(type!=='default'?(' '+type):''); div.textContent=msg; document.body.appendChild(div); setTimeout(()=> div.remove(), 2200);
+    }
+
+    function openImportModal(){
+      if (document.querySelector('.import-modal')) return;
+      const modal = document.createElement('div'); modal.className='import-modal';
+      modal.innerHTML = `
+        <div class="import-dialog" role="dialog" aria-modal="true" aria-label="Importar configuración">
+          <h3 style="margin:0;font-size:18px;font-weight:600;color:#0f172a">Importar Configuración</h3>
+          <p style="margin:0;font-size:13px;color:#475569">Pega un JSON con <code>{ webhook, branding, style }</code>. Se validará y sobrescribirá la actual.</p>
+          <textarea id="import-text" placeholder='{"webhook":{...},"branding":{...},"style":{...}}'></textarea>
+          <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap">
+            <button type="button" class="btn-secondary btn" data-close>Cancelar</button>
+            <button type="button" class="btn" data-import>Importar</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', (e)=> { if(e.target===modal || e.target.closest('[data-close]')) modal.remove(); });
+      modal.querySelector('[data-import]').addEventListener('click', ()=> {
+        const raw = modal.querySelector('#import-text').value.trim();
+        if(!raw){ showToast('Vacío','error'); return; }
+        try {
+          const parsed = JSON.parse(raw);
+          if(!parsed.webhook || !parsed.branding || !parsed.style) throw new Error('Faltan campos');
+          window.ChatWidgetConfig.webhook = parsed.webhook;
+          window.ChatWidgetConfig.branding = parsed.branding;
+          window.ChatWidgetConfig.style = { ...window.ChatWidgetConfig.style, ...parsed.style };
+          renderStepsNav(); renderPanels(); goToStep(stepsDefinition.length-1); applyThemeLive();
+          showToast('Configuración importada','success');
+          modal.remove();
+        } catch(err){ showToast('Error al importar: '+err.message,'error'); }
+      });
     }
 
   prevBtn.addEventListener('click', () => { goToStep(currentStep-1); });
