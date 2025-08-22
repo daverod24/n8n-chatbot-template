@@ -3,100 +3,418 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>n8n Chatbot Template — Demo</title>
+  <title>n8n Chatbot Template — Demo Wizard</title>
+  <!-- Tailwind CDN (solo para la página demo) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
-    :root {
-      --accent-1: #3b82f6; /* blue */
-      --accent-2: #22c55e; /* green */
-      --accent-3: #8b5cf6; /* purple */
-      --glass-bg: rgba(255,255,255,0.22);
-      --glass-brd: rgba(255,255,255,0.35);
-      --text: #1f2937;
-      --muted: #6b7280;
-    }
     html, body { height: 100%; }
     body {
-      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background: linear-gradient(135deg, var(--accent-1), var(--accent-2) 50%, var(--accent-3));
-      display: grid; place-items: center; padding: 24px;
-      min-height: 100vh; overflow-x: hidden;
+      margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background: radial-gradient(circle at 30% 30%, #6366f1, #4338ca 40%, #111827 75%);
+      color:#111;
+      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
     }
-    .modal-shell {
-      width: min(960px, calc(100vw - 32px));
-      border-radius: 18px; padding: 0; position: relative;
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-brd);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      overflow: hidden;
-    }
-    .modal-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.35);
-      background: linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0.1));
-    }
-    .modal-header h1 { margin: 0; font-size: 18px; color: #fff; letter-spacing: .2px; }
-    .modal-body { padding: 24px; display: grid; gap: 12px; }
-    .note { color: #e5e7eb; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.25); padding: 14px; border-radius: 12px; }
-    .note strong { color: #fff; }
-    code { background: rgba(255,255,255,0.18); color: #fff; padding: 2px 6px; border-radius: 6px; }
-    .footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.35); }
-    .badge {
-      display: inline-flex; align-items: center; gap: 8px; color: #fff; font-weight: 600;
-      background: linear-gradient(135deg, rgba(59,130,246,0.9), rgba(34,197,94,0.9) 50%, rgba(139,92,246,0.95));
-      padding: 8px 12px; border-radius: 999px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    }
-    @media (max-width: 640px) {
-      .modal-body { padding: 16px; }
-      .footer { flex-direction: column; align-items: flex-start; gap: 8px; }
-    }
+    .app-shell { width:min(1120px,100%); background:#ffffff; border-radius:24px; box-shadow:0 12px 50px -12px rgba(0,0,0,.35); overflow:hidden; display:flex; flex-direction:column; }
+    .gradient-bar { height:6px; background:linear-gradient(90deg,#6366f1,#8b5cf6,#ec4899,#f59e0b); }
+  .wizard-grid { display:grid; grid-template-columns: 260px 1fr; min-height:620px; }
+  @media (max-width: 900px){ .wizard-grid { grid-template-columns: 1fr; } .sidebar { flex-direction:row; overflow-x:auto; padding:16px 12px; } }
+  .sidebar { background:#f8fafc; border-right:1px solid #e2e8f0; padding:24px 20px; display:flex; flex-direction:column; gap:18px; }
+  .step-item { position:relative; display:flex; gap:12px; align-items:flex-start; cursor:pointer; padding:10px 12px; border-radius:12px; transition:background .25s, color .25s; font-size:14px; min-width:200px; }
+  @media (max-width: 900px){ .step-item { flex:0 0 auto; } }
+    .step-item[aria-current="step"], .step-item:hover { background:#eef2ff; }
+    .step-index { flex-shrink:0; width:28px; height:28px; border-radius:10px; display:grid; place-items:center; font-weight:600; font-size:13px; background:#e0e7ff; color:#4338ca; }
+    .step-item[aria-current="step"] .step-index { background:#6366f1; color:#fff; }
+    .content-area { padding:32px clamp(16px,4vw,48px); display:flex; flex-direction:column; gap:32px; }
+    .panel { background:#ffffff; border:1px solid #e2e8f0; border-radius:20px; padding:28px 30px; box-shadow:0 4px 18px -6px rgba(0,0,0,.08); display:flex; flex-direction:column; gap:20px; }
+    .panel h2 { margin:0; font-size:20px; font-weight:600; letter-spacing:.3px; color:#111827; }
+    .panel p.lead { margin:0; font-size:14px; color:#475569; line-height:1.5; }
+    .field-grid { display:grid; gap:18px; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); }
+    label.field { display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; letter-spacing:.5px; color:#334155; text-transform:uppercase; }
+    label.field input[type="text"],
+    label.field input[type="number"],
+    label.field input[type="color"],
+    label.field input[type="url"],
+    label.field input[type="email"] { appearance:none; border:1px solid #cbd5e1; background:#f8fafc; padding:10px 12px; border-radius:12px; font:inherit; font-size:14px; color:#0f172a; outline:none; transition:border .2s, background .2s; }
+    label.field input:focus { border-color:#6366f1; background:#ffffff; box-shadow:0 0 0 3px rgba(99,102,241,.25); }
+    label.field input[type="range"] { width:100%; accent-color:#6366f1; }
+    .nav-buttons { display:flex; justify-content:space-between; gap:16px; }
+    .btn { --btn-bg:#6366f1; --btn-bg-hover:#4f46e5; background:var(--btn-bg); color:#fff; border:none; font:inherit; font-weight:600; letter-spacing:.3px; padding:12px 22px; border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 14px -4px rgba(99,102,241,.55); transition:background .25s, transform .25s, box-shadow .25s; }
+    .btn:hover { background:var(--btn-bg-hover); box-shadow:0 6px 18px -4px rgba(99,102,241,.65); }
+    .btn-secondary { --btn-bg:#f1f5f9; --btn-bg-hover:#e2e8f0; color:#1e293b; box-shadow:none; }
+    .btn-danger { --btn-bg:#dc2626; --btn-bg-hover:#b91c1c; box-shadow:0 4px 14px -4px rgba(220,38,38,.55); }
+  pre.export-block { margin:0; background:#0f172a; color:#e2e8f0; padding:18px 20px; border-radius:16px; font-size:12px; overflow:auto; line-height:1.5; position:relative; max-width:100%; }
+    pre.export-block button.copy { position:absolute; top:10px; right:10px; font-size:11px; padding:6px 10px; }
+  pre.export-block.wrap code { white-space:pre-wrap; word-break:break-word; }
+  .tokens-table { width:100%; border-collapse:collapse; font-size:11px; }
+  .tokens-table th, .tokens-table td { padding:6px 8px; border:1px solid #e2e8f0; text-align:left; }
+  .tokens-table th { background:#f1f5f9; font-weight:600; font-size:11px; }
+  @media (max-width: 640px){ .content-area { padding:24px 14px; gap:24px; } .panel { padding:22px 22px; } pre.export-block { font-size:11px; } }
+    .inline-badge { background:#eef2ff; color:#4338ca; font-size:11px; font-weight:600; padding:4px 8px; border-radius:8px; letter-spacing:.5px; }
+    .tips { display:grid; gap:12px; }
+    .tips p { margin:0; font-size:13px; line-height:1.5; color:#334155; }
+    .footer { padding:18px 26px; border-top:1px solid #e2e8f0; background:#f8fafc; font-size:12px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .footer a { color:#6366f1; text-decoration:none; font-weight:600; }
+    .footer a:hover { text-decoration:underline; }
   </style>
 </head>
 <body>
-  <div class="modal-shell" role="region" aria-label="Demo container">
-    <div class="modal-header">
-      <h1>n8n Chatbot Template — Demo</h1>
-      <span class="badge">Gradient • Glass • Shadow</span>
-    </div>
-    <div class="modal-body">
-      <p style="margin:0;color:#f3f4f6">This page loads <code>davetechai-chat-widget.js</code> and initializes it via <code>window.ChatWidgetConfig</code>.</p>
-      <div class="note">
-        <strong>Tip:</strong> Open your browser console to see any network or permission errors while testing.
+  <div class="app-shell" role="region" aria-label="Demo wizard for chat widget">
+    <div class="gradient-bar"></div>
+    <div class="wizard-grid">
+      <!-- Sidebar Steps -->
+      <nav class="sidebar" aria-label="Pasos de personalización" id="wizard-steps"></nav>
+      <!-- Dynamic Content -->
+      <div class="content-area">
+        <header>
+          <h1 class="text-2xl font-bold tracking-tight text-slate-900 m-0 flex items-center gap-3">Configura tu Chat <span class="inline-badge">Wizard</span></h1>
+          <p class="mt-2 text-slate-600 text-sm leading-relaxed max-w-prose">Sigue los pasos para personalizar el widget. Los cambios de estilo se aplican en vivo. Al final podrás copiar la configuración JSON.</p>
+        </header>
+        <form id="theme-form" class="flex flex-col gap-10" autocomplete="off">
+          <!-- STEP PANELS (rendered via template) -->
+          <div id="steps-container" class="flex flex-col gap-10"></div>
+          <div class="nav-buttons">
+            <button type="button" class="btn-secondary btn" id="prev-btn">Anterior</button>
+            <div class="flex gap-3 ml-auto">
+              <button type="button" class="btn-secondary btn" id="reset-btn" style="--btn-bg:#f1f5f9;--btn-bg-hover:#e2e8f0">Reset</button>
+              <button type="button" class="btn" id="apply-btn">Aplicar cambios</button>
+              <button type="button" class="btn" id="next-btn">Siguiente</button>
+              <button type="button" class="btn" id="finish-btn" style="display:none">Finalizar</button>
+            </div>
+          </div>
+        </form>
+  <!-- Export UI ahora se integra dentro del panel del paso 5 -->
       </div>
     </div>
     <div class="footer">
-      <span style="color:#e5e7eb">Lightweight embeddable widget • No build tools needed</span>
-      <span class="badge">Blue • Green • Purple</span>
+      <span>Widget liviano • Paso a paso • Personalización dinámica</span>
+      <span><a href="https://www.daverod.tech" target="_blank" rel="noopener noreferrer">DaverodtechAI</a></span>
     </div>
   </div>
 
   <script>
-    // Minimal configuration. Replace webhook.url with your n8n Webhook URL.
+    // Configuración inicial mínima (puedes modificar en el Wizard)
     window.ChatWidgetConfig = {
-      webhook: {
-        url: 'https://kaizendeploy.daverod.tech/webhook/id/chat', // e.g. n8n Webhook node test URL
-        route: 'chat'
-      },
+      webhook: { url: 'https://kaizendeploy.daverod.tech/webhook/575c6704-99d4-436e-8065-281b72a54e19/chat', route: 'chat' },
       branding: {
         logo: 'https://avatars.githubusercontent.com/u/45487711?s=200&v=4',
         name: 'Support',
-        welcomeText: '¡Hola! ¿Cómo podemos ayudarte?',
+        welcomeText: '¡Hola! Soy DaverodtechAI, tu asistente virtual. ¿Cómo puedo ayudarte hoy?',
         responseTimeText: 'Normalmente respondemos en unos minutos.',
         poweredBy: { text: 'Powered by DaverodtechAI', link: 'https://www.daverod.tech' }
       },
       style: {
         position: 'right',
-        primaryColor: '#854fff',
-        secondaryColor: '#6b3fd4',
-        backgroundColor: 'rgba(255, 255, 255, 0.6)',
-        fontColor: '#333333'
+        primaryColor: '#6366f1',
+        secondaryColor: '#8b5cf6',
+        backgroundColor: 'rgba(255,255,255,0.70)',
+        fontColor: '#1e293b',
+        userBubbleColor: '',
+        botBubbleColor: '',
+        userTextColor: '',
+        botTextColor: '',
+        borderRadius: '16px',
+        fontSize: '15px',
+        headerBackground: 'rgba(255,255,255,0.55)',
+        inputBackground: 'rgba(255,255,255,0.5)',
+        chatBackgroundBlur: '16px',
+        shadowColor: 'rgba(99,102,241,0.25)'
       }
-      // icons: { expand, collapse, darkMode, lightMode, clearHistory, close } // Optional SVG strings or image URLs
     };
   </script>
 
   <!-- The widget script must be loaded after window.ChatWidgetConfig is set -->
   <script src="./davetechai-chat-widget.js"></script>
+  <script>
+    // ---------------------------
+    // Wizard Logic & Theming API
+    // ---------------------------
+    const stepsDefinition = [
+      {
+        key: 'basico',
+        title: '1. Básico',
+        desc: 'Webhook y branding principal.',
+        fields: [
+          { name:'webhookUrl', label:'Webhook URL', type:'url', placeholder:'https://.../webhook/xxx/chat', group:'webhook', prop:'url' },
+          { name:'webhookRoute', label:'Route', type:'text', placeholder:'chat', group:'webhook', prop:'route' },
+          { name:'brandName', label:'Nombre', type:'text', placeholder:'Support', group:'branding', prop:'name' },
+          { name:'brandLogo', label:'Logo URL', type:'url', placeholder:'https://...', group:'branding', prop:'logo' },
+        ]
+      },
+      {
+        key: 'mensajes',
+        title: '2. Mensajes',
+        desc: 'Textos de bienvenida y tiempos.',
+        fields: [
+          { name:'welcomeText', label:'Welcome Text', type:'text', placeholder:'¡Hola!...', group:'branding', prop:'welcomeText', wide:true },
+          { name:'responseTimeText', label:'Tiempo Respuesta', type:'text', placeholder:'Respondemos en...', group:'branding', prop:'responseTimeText', wide:true },
+          { name:'poweredByText', label:'Powered Text', type:'text', placeholder:'Powered by ...', group:'branding.poweredBy', prop:'text' },
+          { name:'poweredByLink', label:'Powered Link', type:'url', placeholder:'https://...', group:'branding.poweredBy', prop:'link' }
+        ]
+      },
+      {
+        key: 'colores',
+        title: '3. Colores',
+        desc: 'Base y tipografía.',
+        fields: [
+          { name:'primaryColor', label:'Primary', type:'color' },
+          { name:'secondaryColor', label:'Secondary', type:'color' },
+          { name:'backgroundColor', label:'Fondo Widget', type:'color' },
+          { name:'fontColor', label:'Color Texto', type:'color' },
+          { name:'userBubbleColor', label:'Burbuja Usuario', type:'color' },
+          { name:'botBubbleColor', label:'Burbuja Bot', type:'color' },
+          { name:'userTextColor', label:'Texto Usuario', type:'color' },
+          { name:'botTextColor', label:'Texto Bot', type:'color' }
+        ]
+      },
+      {
+        key: 'layout',
+        title: '4. Layout & FX',
+        desc: 'Radio, fuente, blur, sombra.',
+        fields: [
+          { name:'borderRadius', label:'Radius (px)', type:'number', min:8, max:32, step:1 },
+          { name:'fontSize', label:'Font Size (px)', type:'number', min:12, max:20, step:1 },
+          { name:'chatBackgroundBlur', label:'Blur (px)', type:'number', min:0, max:30, step:1 },
+          { name:'headerBackground', label:'Header BG (rgba)', type:'text' },
+          { name:'inputBackground', label:'Input BG (rgba)', type:'text' },
+          { name:'shadowColor', label:'Shadow Color', type:'text' },
+          { name:'position', label:'Posición (right/left)', type:'text', placeholder:'right' }
+        ]
+      },
+      {
+        key: 'exportar',
+        title: '5. Exportar',
+        desc: 'Obtén el JSON final.',
+        fields: []
+      }
+    ];
+
+    const stepsNav = document.getElementById('wizard-steps');
+    const stepsContainer = document.getElementById('steps-container');
+  let exportCodeEl = null;
+  let copyBtn = null;
+    const formEl = document.getElementById('theme-form');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+  const finishBtn = document.getElementById('finish-btn');
+  const resetBtn = document.getElementById('reset-btn');
+    const applyBtn = document.getElementById('apply-btn');
+
+    let currentStep = 0;
+
+    // Render sidebar steps
+    function renderStepsNav() {
+      stepsNav.innerHTML = '';
+      stepsDefinition.forEach((s, idx) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'step-item';
+        item.setAttribute('data-step', idx);
+        if (idx === currentStep) item.setAttribute('aria-current','step');
+        item.innerHTML = `<span class="step-index">${idx+1}</span><span><strong>${s.title}</strong><br><span style="font-weight:400; color:#475569">${s.desc}</span></span>`;
+        item.addEventListener('click', () => { goToStep(idx); });
+        stepsNav.appendChild(item);
+      });
+    }
+
+    // Render panels
+    function renderPanels() {
+      stepsContainer.innerHTML = '';
+      stepsDefinition.forEach((s, idx) => {
+        const panel = document.createElement('section');
+        panel.className = 'panel';
+        panel.setAttribute('data-panel', idx);
+        panel.style.display = idx === currentStep ? 'flex' : 'none';
+        panel.innerHTML = `<h2>${s.title}</h2><p class="lead">${s.desc}</p>`;
+        if (s.fields.length) {
+          const fg = document.createElement('div');
+            fg.className = 'field-grid';
+            s.fields.forEach(f => {
+              const lb = document.createElement('label');
+              lb.className = 'field' + (f.wide ? ' col-span-full' : '');
+              const attrs = [
+                `name="${f.name}"`,
+                `type="${f.type}"`
+              ];
+              if (f.placeholder) attrs.push(`placeholder="${f.placeholder}"`);
+              if (f.min!=null) attrs.push(`min="${f.min}"`);
+              if (f.max!=null) attrs.push(`max="${f.max}"`);
+              if (f.step!=null) attrs.push(`step="${f.step}"`);
+              let value = getInitialValue(f.name);
+              if (f.type === 'color' && value === '') { value = '#ffffff'; }
+              if (value != null) attrs.push(`value="${escapeHtml(String(value))}"`);
+              lb.innerHTML = `${f.label}<input ${attrs.join(' ')} />`;
+              fg.appendChild(lb);
+            });
+          panel.appendChild(fg);
+        } else if (s.key === 'exportar') {
+          panel.innerHTML += `
+            <div class="flex flex-col gap-6">
+              <div>
+                <h3 style="margin:0 0 4px;font-size:16px;font-weight:600;color:#0f172a">JSON final</h3>
+                <p class="lead" style="margin-top:0">Pulsa "Finalizar" para generar y copiar (también puedes copiar manualmente).</p>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px">
+                  <button type="button" class="btn-secondary btn" id="toggle-wrap" style="--btn-bg:#f8fafc;--btn-bg-hover:#e2e8f0; padding:8px 14px; font-size:12px">Wrap</button>
+                  <button type="button" class="btn-secondary btn" id="download-config" style="--btn-bg:#f8fafc;--btn-bg-hover:#e2e8f0; padding:8px 14px; font-size:12px">Descargar config.js</button>
+                  <span id="copy-badge" style="display:none; background:#d1fae5; color:#065f46; padding:6px 10px; border-radius:12px; font-size:11px; font-weight:600">Copiado ✓</span>
+                </div>
+                <pre class="export-block" id="export-block" style="max-height:320px"><code id="export-code">{}</code><button type="button" class="btn-secondary copy" id="copy-config">Copiar</button></pre>
+              </div>
+              <div class="tips">
+                <h3 style="margin:4px 0 8px;font-size:15px;font-weight:600;color:#0f172a">¿Qué sigue?</h3>
+                <p><strong>1.</strong> Pega el JSON dentro de un <code>&lt;script&gt;</code> definiendo <code>window.ChatWidgetConfig</code>.</p>
+                <p><strong>2.</strong> Carga el script: <code>&lt;script src="/davetechai-chat-widget.js"&gt;&lt;/script&gt;</code>.</p>
+                <p><strong>3.</strong> Ajusta el webhook a tu flujo n8n real.</p>
+                <p><strong>4.</strong> Opcional: <code>window.N8NChatWidgetInstance.updateTheme({...})</code> para cambios en vivo.</p>
+                <p><strong>5.</strong> Personaliza íconos vía <code>icons</code> en la config.</p>
+                <h3 style="margin:12px 0 4px;font-size:14px;font-weight:600;color:#0f172a">Tokens de estilo</h3>
+                <div style="overflow:auto">
+                  <table class="tokens-table" id="tokens-table"><thead><tr><th>Propiedad</th><th>Valor</th></tr></thead><tbody></tbody></table>
+                </div>
+              </div>
+            </div>`;
+        }
+        stepsContainer.appendChild(panel);
+      });
+    }
+
+    function getInitialValue(name) {
+      const st = window.ChatWidgetConfig.style;
+      const br = window.ChatWidgetConfig.branding;
+      switch (name) {
+        case 'webhookUrl': return window.ChatWidgetConfig.webhook.url;
+        case 'webhookRoute': return window.ChatWidgetConfig.webhook.route;
+        case 'brandName': return br.name;
+        case 'brandLogo': return br.logo;
+        case 'welcomeText': return br.welcomeText;
+        case 'responseTimeText': return br.responseTimeText;
+        case 'poweredByText': return br.poweredBy.text;
+        case 'poweredByLink': return br.poweredBy.link;
+        default: return st[name];
+      }
+    }
+
+    function escapeHtml(str){ return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+
+    function goToStep(idx) {
+      currentStep = Math.max(0, Math.min(stepsDefinition.length-1, idx));
+      // Panels
+      stepsContainer.querySelectorAll('[data-panel]').forEach(p => {
+        p.style.display = Number(p.dataset.panel) === currentStep ? 'flex' : 'none';
+      });
+      // Sidebar state
+      stepsNav.querySelectorAll('.step-item').forEach((el,i)=> {
+        if (i===currentStep) el.setAttribute('aria-current','step'); else el.removeAttribute('aria-current');
+      });
+      // Nav buttons
+      prevBtn.style.visibility = currentStep === 0 ? 'hidden' : 'visible';
+      nextBtn.style.display = currentStep < stepsDefinition.length -1 ? 'inline-flex' : 'none';
+      finishBtn.style.display = currentStep === stepsDefinition.length -1 ? 'inline-flex' : 'none';
+      // refrescar refs al export si estamos en el paso final
+      if (currentStep === stepsDefinition.length -1) {
+        exportCodeEl = document.getElementById('export-code');
+        copyBtn = document.getElementById('copy-config');
+        if (copyBtn && !copyBtn.dataset.bound) {
+          copyBtn.addEventListener('click', () => { copyToClipboard(exportCodeEl.textContent); showCopied(); });
+          copyBtn.dataset.bound = '1';
+        }
+  // generar export automáticamente al entrar al paso final
+  applyThemeLive();
+        // toggle wrap
+        const wrapBtn = document.getElementById('toggle-wrap');
+        const exportBlock = document.getElementById('export-block');
+        if (wrapBtn && !wrapBtn.dataset.bound){
+          wrapBtn.addEventListener('click', () => { exportBlock.classList.toggle('wrap'); });
+          wrapBtn.dataset.bound = '1';
+        }
+        // download button
+        const dlBtn = document.getElementById('download-config');
+        if (dlBtn && !dlBtn.dataset.bound){
+          dlBtn.addEventListener('click', () => {
+            const blob = new Blob([exportCodeEl.textContent], { type:'application/javascript' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'config.js';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
+          });
+          dlBtn.dataset.bound='1';
+        }
+      }
+    }
+
+  function collectValues() {
+      const data = new FormData(formEl);
+      const style = { ...window.ChatWidgetConfig.style };
+      const branding = JSON.parse(JSON.stringify(window.ChatWidgetConfig.branding));
+      const webhook = { ...window.ChatWidgetConfig.webhook };
+      for (const [k,v] of data.entries()) {
+        if (k === 'webhookUrl') webhook.url = v;
+        else if (k === 'webhookRoute') webhook.route = v;
+        else if (k === 'brandName') branding.name = v;
+        else if (k === 'brandLogo') branding.logo = v;
+        else if (k === 'welcomeText') branding.welcomeText = v;
+        else if (k === 'responseTimeText') branding.responseTimeText = v;
+        else if (k === 'poweredByText') branding.poweredBy.text = v;
+        else if (k === 'poweredByLink') branding.poweredBy.link = v;
+    else if (k === 'borderRadius' && v !== '') style.borderRadius = Number(v) + 'px';
+    else if (k === 'fontSize' && v !== '') style.fontSize = Number(v) + 'px';
+    else if (k === 'chatBackgroundBlur' && v !== '') style.chatBackgroundBlur = Number(v) + 'px';
+        else if (k === 'position') style.position = v || 'right';
+        else style[k] = v; // colors & text-like
+      }
+      return { webhook, branding, style };
+    }
+
+    function applyThemeLive() {
+      const full = collectValues();
+      if (window.N8NChatWidgetInstance) {
+        window.N8NChatWidgetInstance.updateTheme(full.style);
+      }
+      window.ChatWidgetConfig.webhook = full.webhook;
+      window.ChatWidgetConfig.branding = full.branding;
+      renderExport(full);
+    }
+
+    function renderExport(cfg) {
+      if (!exportCodeEl) return; // aún no en paso 5
+      const json = JSON.stringify(cfg, null, 2);
+      exportCodeEl.textContent = `window.ChatWidgetConfig = ${json};\n` + 'window.N8NChatWidgetInstance?.updateTheme(window.ChatWidgetConfig.style);';
+      // tokens table
+      const tbl = document.querySelector('#tokens-table tbody');
+      if (tbl) {
+        tbl.innerHTML = '';
+        Object.entries(cfg.style).forEach(([k,v])=> {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td style="font-weight:600">${k}</td><td><code>${v}</code></td>`;
+          tbl.appendChild(tr);
+        });
+      }
+    }
+
+  prevBtn.addEventListener('click', () => { goToStep(currentStep-1); });
+  nextBtn.addEventListener('click', () => { applyThemeLive(); goToStep(currentStep+1); });
+  finishBtn.addEventListener('click', () => { applyThemeLive(); if (exportCodeEl) { copyToClipboard(exportCodeEl.textContent); showCopied(); } finishBtn.textContent='¡Copiado!'; setTimeout(()=> finishBtn.textContent='Finalizar',1500); });
+  applyBtn.addEventListener('click', () => { applyThemeLive(); applyBtn.textContent='Aplicado'; setTimeout(()=> applyBtn.textContent='Aplicar cambios',1200); });
+  resetBtn.addEventListener('click', () => { restoreDefaults(); });
+
+    function copyToClipboard(text){ navigator.clipboard?.writeText(text).catch(()=>{ const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }); }
+  function showCopied(){ const badge = document.getElementById('copy-badge'); if(!badge) return; badge.style.display='inline-flex'; setTimeout(()=>{ badge.style.display='none'; },1800); }
+    const _initialConfig = JSON.parse(JSON.stringify(window.ChatWidgetConfig));
+    function restoreDefaults(){
+      window.ChatWidgetConfig = JSON.parse(JSON.stringify(_initialConfig));
+      renderStepsNav();
+      renderPanels();
+      goToStep(0);
+      applyThemeLive();
+      resetBtn.textContent='Restablecido'; setTimeout(()=> resetBtn.textContent='Reset',1400);
+    }
+
+    // Init
+    renderStepsNav();
+    renderPanels();
+    goToStep(0);
+    // initial export
+    renderExport({ webhook: window.ChatWidgetConfig.webhook, branding: window.ChatWidgetConfig.branding, style: window.ChatWidgetConfig.style });
+  </script>
 </body>
 </html>

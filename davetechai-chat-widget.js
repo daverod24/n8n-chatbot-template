@@ -71,7 +71,18 @@
                     secondaryColor: '#6b3fd4',
                     position: 'right',
                     backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                    fontColor: '#333333'
+                    fontColor: '#333333',
+                    // NEW theming tokens (optional for customization panel)
+                    userBubbleColor: '', // fallback to gradient if empty
+                    botBubbleColor: '',
+                    userTextColor: '',
+                    botTextColor: '',
+                    borderRadius: '16px',
+                    fontSize: '15px',
+                    headerBackground: 'rgba(255,255,255,0.2)',
+                    inputBackground: 'rgba(255,255,255,0.3)',
+                    chatBackgroundBlur: '16px',
+                    shadowColor: 'rgba(133, 79, 255, 0.15)'
                 },
                 content: {
                     parseMarkdown: true,
@@ -82,15 +93,14 @@
                     items: [
                         '¿Cuáles son los horarios?',
                         '¿Qué servicios ofrecen?',
-                        '¿Cómo me inscribo?',
-                        '¿Tienen clases online?'
+                        '¿Quiero agendar una reunion?'
                     ],
                 },
                 prechat: {
                     enabled: true,
                     fields: {
                         fullNameLabel: 'Nombre completo',
-                        emailLabel: 'Email',
+                        emailLabel: 'Email (opcional)',
                         submitText: 'Comenzar chat',
                     },
                 },
@@ -165,8 +175,8 @@
                                     </label>
                                 </div>
                                 <div class="form-row">
-                                    <label>${this.config.prechat.fields.emailLabel}
-                                        <input type="email" name="email" placeholder="tu@email.com" required />
+                                    <label>${this.config.prechat.fields.emailLabel || 'Email (opcional)'}
+                                        <input type="email" name="email" placeholder="tu@email.com" />
                                     </label>
                                 </div>
                                 <button type="submit" class="new-chat-btn">
@@ -254,6 +264,17 @@
             widget.style.setProperty('--n8n-chat-secondary-color', style.secondaryColor);
             widget.style.setProperty('--n8n-chat-background-color', style.backgroundColor);
             widget.style.setProperty('--n8n-chat-font-color', style.fontColor);
+            // Extended tokens
+            widget.style.setProperty('--n8n-chat-user-bubble-bg', style.userBubbleColor || '');
+            widget.style.setProperty('--n8n-chat-bot-bubble-bg', style.botBubbleColor || '');
+            widget.style.setProperty('--n8n-chat-user-text-color', style.userTextColor || '');
+            widget.style.setProperty('--n8n-chat-bot-text-color', style.botTextColor || '');
+            widget.style.setProperty('--n8n-chat-radius', style.borderRadius);
+            widget.style.setProperty('--n8n-chat-font-size', style.fontSize);
+            widget.style.setProperty('--n8n-chat-header-bg', style.headerBackground);
+            widget.style.setProperty('--n8n-chat-input-bg', style.inputBackground);
+            widget.style.setProperty('--n8n-chat-blur', style.chatBackgroundBlur);
+            widget.style.setProperty('--n8n-chat-shadow-color', style.shadowColor);
 
             if (this.state.darkMode) {
                 widget.classList.add('dark-mode');
@@ -264,6 +285,15 @@
 
             // Cargar perfil si existe
             this._loadUserProfile();
+        }
+
+        /**
+         * Actualiza dinámicamente el tema del widget.
+         * @param {object} partialTheme - Subconjunto de propiedades style a actualizar.
+         */
+        updateTheme(partialTheme = {}) {
+            this.config.style = { ...this.config.style, ...partialTheme };
+            this._applyInitialStyles();
         }
 
         /**
@@ -281,11 +311,15 @@
                     const form = e.currentTarget;
                     const fullName = form.fullName?.value?.trim();
                     const email = form.email?.value?.trim();
-                    if (!fullName || !email || !this._isValidEmail(email)) {
-                        alert('Por favor, ingresa un nombre y un email válidos.');
+                    if (!fullName) {
+                        alert('Por favor, ingresa tu nombre completo.');
                         return;
                     }
-                    this._saveUserProfile({ fullName, email });
+                    if (email && !this._isValidEmail(email)) {
+                        alert('El email no es válido.');
+                        return;
+                    }
+                    this._saveUserProfile(email ? { fullName, email } : { fullName });
                     this._startNewConversation();
                 });
             } else {
@@ -712,15 +746,18 @@
 
         /** Construye un sessionId estable basado en nombre y email o genera uno aleatorio */
         _buildSessionId() {
-            if (this.state.userProfile?.fullName && this.state.userProfile?.email) {
+            if (this.state.userProfile?.fullName) {
                 const slug = this.state.userProfile.fullName
                   .toLowerCase()
                   .normalize('NFD')
                   .replace(/[\u0300-\u036f]/g,'')
                   .replace(/[^a-z0-9]+/g,'-')
                   .replace(/(^-|-$)/g,'');
-                const email = this.state.userProfile.email.toLowerCase();
-                return `${slug}|${email}`;
+                if (this.state.userProfile.email) {
+                    const email = this.state.userProfile.email.toLowerCase();
+                    return `${slug}|${email}`;
+                }
+                return slug;
             }
             return crypto.randomUUID();
         }
@@ -868,28 +905,37 @@
         _getStyles() {
             // El CSS se mantiene en una cadena para que el widget sea autocontenido.
             // Se ha formateado para mejorar la legibilidad.
-            return `
+        return `
                 .n8n-chat-widget {
                     --chat--color-primary: var(--n8n-chat-primary-color, #854fff);
                     --chat--color-secondary: var(--n8n-chat-secondary-color, #6b3fd4);
                     --chat--color-background: var(--n8n-chat-background-color, rgba(255, 255, 255, 0.5));
                     --chat--color-font: var(--n8n-chat-font-color, #333333);
-                    --chat--color-border: rgba(0, 0, 0, 0.1);
-                    --chat--color-shadow: rgba(133, 79, 255, 0.15);
+            --chat--color-border: rgba(0, 0, 0, 0.08);
+            --chat--color-shadow: var(--n8n-chat-shadow-color, rgba(133, 79, 255, 0.15));
+            --chat--radius: var(--n8n-chat-radius, 16px);
+            --chat--font-size: var(--n8n-chat-font-size, 15px);
+            --chat--header-bg: var(--n8n-chat-header-bg, rgba(255,255,255,0.2));
+            --chat--input-bg: var(--n8n-chat-input-bg, rgba(255,255,255,0.3));
+            --chat--blur: var(--n8n-chat-blur, 16px);
+            --chat--user-bubble-bg: var(--n8n-chat-user-bubble-bg);
+            --chat--bot-bubble-bg: var(--n8n-chat-bot-bubble-bg);
+            --chat--user-text: var(--n8n-chat-user-text-color);
+            --chat--bot-text: var(--n8n-chat-bot-text-color);
                     font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
                 }
                 .n8n-chat-widget .chat-container { 
                     position: fixed; bottom: 20px; right: 20px; z-index: 1000; 
                     display: none; width: 380px; height: 600px; 
                     background: var(--chat--color-background); 
-                    border-radius: 16px; 
+            border-radius: var(--chat--radius); 
                     box-shadow: 0 8px 32px var(--chat--color-shadow); 
                     border: 1px solid rgba(255, 255, 255, 0.4); 
                     overflow: hidden; 
                     font-family: inherit; 
                     flex-direction: column; 
-                    backdrop-filter: blur(16px); 
-                    -webkit-backdrop-filter: blur(16px); 
+            backdrop-filter: blur(var(--chat--blur)); 
+            -webkit-backdrop-filter: blur(var(--chat--blur)); 
                     transition: width 0.3s ease, height 0.3s ease; 
                 }
                 .n8n-chat-widget .chat-container.position-left { right: auto; left: 20px; }
@@ -900,7 +946,7 @@
                     padding: 12px 16px; display: flex; align-items: center; gap: 12px; 
                     border-bottom: 1px solid var(--chat--color-border); 
                     position: sticky; top: 0; left: 0; right: 0; z-index: 5; 
-                    flex-shrink: 0; background: rgba(255,255,255,0.2); 
+                    flex-shrink: 0; background: var(--chat--header-bg); 
                 }
                 .n8n-chat-widget .header-controls { margin-left: auto; display: flex; align-items: center; gap: 4px; }
                 .n8n-chat-widget .header-controls button { 
@@ -939,20 +985,22 @@
                 .n8n-chat-widget .chat-interface-view { height: 100%; }
                 .n8n-chat-widget .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; }
                 .n8n-chat-widget .chat-message { 
-                    padding: 12px 16px; margin: 8px 0; border-radius: 18px; 
-                    max-width: 80%; word-wrap: break-word; font-size: 15px; line-height: 1.5; 
+                    padding: 10px 14px; margin: 6px 0; border-radius: calc(var(--chat--radius) - 4px); 
+                    max-width: 80%; word-wrap: break-word; font-size: var(--chat--font-size); line-height: 1.5; 
+                    background: rgba(255,255,255,0.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
                 }
+                /* Usuario: permite override por variable, si no hay variable usar gradiente existente */
                 .n8n-chat-widget .chat-message.user { 
-                    background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%); 
-                    color: white; align-self: flex-end; 
-                    box-shadow: 0 4px 12px rgba(133, 79, 255, 0.2); 
-                    border-radius: 18px 18px 4px 18px; 
+                    background: var(--chat--user-bubble-bg, linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%)); 
+                    color: var(--chat--user-text, #fff); align-self: flex-end; 
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.15); 
+                    border-top-right-radius: 4px; 
                 }
                 .n8n-chat-widget .chat-message.bot { 
-                    background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(255, 255, 255, 0.3); 
-                    color: var(--chat--color-font); align-self: flex-start; 
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); 
-                    border-radius: 18px 18px 18px 4px; 
+                    background: var(--chat--bot-bubble-bg, rgba(255,255,255,0.55)); border: 1px solid rgba(0,0,0,0.05); 
+                    color: var(--chat--bot-text, var(--chat--color-font)); align-self: flex-start; 
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.08); 
+                    border-top-left-radius: 4px; 
                 }
                 .n8n-chat-widget .message-content { width: 100%; }
                 .n8n-chat-widget .message-content h1,
@@ -966,7 +1014,7 @@
                 .n8n-chat-widget .message-content ul, .n8n-chat-widget .message-content ol { padding-left: 18px; margin: 0.4em 0; }
                 .n8n-chat-widget .message-content a { color: var(--chat--color-primary); text-decoration: underline; }
                 .n8n-chat-widget .chat-input { 
-                    padding: 12px 16px; background: rgba(255,255,255,0.2); 
+                    padding: 12px 16px; background: var(--chat--input-bg); 
                     border-top: 1px solid var(--chat--color-border); 
                     display: flex; gap: 8px; flex-shrink: 0; align-items: flex-end; 
                 }
@@ -1018,7 +1066,7 @@
                 }
                 .n8n-chat-widget.dark-mode .brand-header, 
                 .n8n-chat-widget.dark-mode .chat-input, 
-                .n8n-chat-widget.dark-mode .chat-footer { background: rgba(0,0,0,0.2); }
+                .n8n-chat-widget.dark-mode .chat-footer { background: rgba(0,0,0,0.25); }
                 .n8n-chat-widget.dark-mode .chat-message.bot { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }
                 .n8n-chat-widget.dark-mode .chat-input textarea { background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); }
                 .n8n-chat-widget.dark-mode .chat-input textarea:focus { background: rgba(0,0,0,0.3); }
@@ -1074,7 +1122,9 @@
         }
     }
 
-    // Inicializa el widget con la configuración global que el usuario pueda definir.
-    new ChatWidget(window.ChatWidgetConfig);
+    // Inicializa el widget con la configuración global que el usuario pueda definir y expone instancia para personalización dinámica.
+    window.N8NChatWidgetInstance = new ChatWidget(window.ChatWidgetConfig);
+    // Método helper global opcional para actualizar tema desde fuera (ej: panel de control demo)
+    window.updateChatWidgetTheme = (vars) => window.N8NChatWidgetInstance?.updateTheme(vars);
 
 })();
